@@ -1,0 +1,2 @@
+..\GraphViewer.exe -i solution.txt -g solution.graph -m marginals.txt -ca 3:2 -cf 60 -prci order.txt [1,0,0;0,1,0;0,0,1] 3072 2048 -cp 0.179655:-0.748489:1.0736:0.27:2.97909:0
+pause
