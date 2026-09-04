@@ -69,7 +69,7 @@ flowchart TB
     INCR --> ESS
     INCR --> TRI
     INCR --> PNP
-    INCR -.default BA, overridable.-> SBA
+    INCR -. default BA, overridable .-> SBA
 
     JAC --> SO3
     LM --> JAC
@@ -100,7 +100,7 @@ One core reconstruction pipeline produces a scene (cameras + sparse points); thr
 
 ```mermaid
 flowchart TB
-    IMAGES["Photos + K<br/>(sfm/io: Fountain-P11 loader,<br/>or reconstruct.py's generic loader)"]
+    IMAGES["Photos + K<br/>(sfm/io: Fountain-P11 loader,<br/>or the generic loader in reconstruct.py)"]
     TRACKS["Multi-view tracks<br/>(sfm/features)"]
     SFM["Two-view seed → incremental PnP loop<br/>→ Bundle Adjustment<br/>(sfm/geometry + sfm/recon + sfm/ba)"]
     SCENE[["Completed Map / scene_cache.npz<br/>(11+ posed cameras, colored sparse points)"]]
@@ -113,7 +113,7 @@ flowchart TB
     SCENE --> EVALB
     SCENE --> MVSB
     SCENE --> VIEWER
-    MVSB -.dense mesh mode.-> VIEWER
+    MVSB -. dense mesh mode .-> VIEWER
 ```
 
 ## Plain-text fallback
