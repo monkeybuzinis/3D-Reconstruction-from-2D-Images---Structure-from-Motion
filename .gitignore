@@ -2,3 +2,10 @@
 __pycache__/
 *.pyc
 outputs/
+dataset/buddha*/
+dataset/buffalo*/
+dataset/statue/
+dataset/child-statue/
+dataset/open-mouth/
+*.pdf
+"Untitled Document 1"
