@@ -125,7 +125,8 @@ def main() -> None:
 
     if args.dense:
         from sfm.mvs.fuse import dense_reconstruct
-        from sfm.mvs.mesh import clean_dense_cloud, keep_largest_cluster, poisson_mesh
+        from sfm.mvs.mesh import clean_dense_cloud, keep_significant_clusters, poisson_mesh
+        from sfm.mvs.params import dense_params
         import open3d as o3d
 
         cam_ids = sorted(scene.cameras)
@@ -133,16 +134,34 @@ def main() -> None:
         Rs = np.stack([scene.cameras[c].R for c in cam_ids])
         ts = np.stack([scene.cameras[c].t for c in cam_ids])
 
-        min_depth, max_depth = np.percentile(xyz[:, 2], [1, 99])
+        # Depth window from per-camera depths, voxel size from the sensor's
+        # resolution limit -- neither from world coordinates, which is the
+        # mistake sfm/mvs/params.py documents.
+        params = dense_params(xyz, Rs, ts, Ks, downscale=2)
+        print(f"Dense depth window: {params.min_depth:.2f}-{params.max_depth:.2f} "
+              f"({params.n_core_points:,}/{params.n_points:,} points seen in range by >=2 cameras)")
+        print(f"Voxel size: {params.voxel_size:.4f} (12 pixel footprints; one pixel spans "
+              f"{params.pixel_footprint:.5f} at median depth {params.median_depth:.2f})")
+
         t0 = time.time()
-        dense_pts, dense_colors = dense_reconstruct(images, cam_ids, Ks, Rs, ts, min_depth, max_depth)
+        dense_pts, dense_colors = dense_reconstruct(
+            images, cam_ids, Ks, Rs, ts, params.min_depth, params.max_depth, downscale=2
+        )
         print(f"Dense stereo: {dense_pts.shape[0]:,} raw points in {time.time()-t0:.1f}s")
 
-        lo, hi = np.percentile(xyz, [1, 99], axis=0)
-        voxel_size = np.linalg.norm(hi - lo) / 250
+        voxel_size = params.voxel_size
         pcd = clean_dense_cloud(dense_pts, dense_colors, voxel_size=voxel_size)
-        pcd = keep_largest_cluster(pcd, eps=voxel_size * 4)
+        pcd = keep_significant_clusters(pcd, eps=voxel_size * 4)
         print(f"Cleaned dense cloud: {len(pcd.points):,} points")
+
+        # Poisson (and the colour transfer after it) need real geometry to
+        # work with. A sparse solve that registered only a few cameras can
+        # leave almost nothing here, and crashing on an empty array hides
+        # the actual problem, which is upstream.
+        if len(pcd.points) < 100:
+            print("Too few dense points to mesh -- skipping. The sparse "
+                  "reconstruction is too thin; check how many cameras registered.")
+            raise SystemExit(0)
 
         mesh = poisson_mesh(pcd, depth=9)
         mesh_path = out_dir / "dense_mesh.ply"

@@ -52,10 +52,11 @@ def clean_dense_cloud(
 
 def keep_largest_cluster(pcd: o3d.geometry.PointCloud, eps: float, min_points: int = 30) -> o3d.geometry.PointCloud:
     """
-    DBSCAN clustering, keeping only the largest connected cluster -- a
-    second line of defense against any streak/artifact cluster that
-    survives density filtering but is still spatially separate from the
-    main reconstructed surface.
+    DBSCAN clustering, keeping only the largest connected cluster.
+
+    Kept for the scripts and experiments that ask for exactly this, but
+    keep_significant_clusters() is the better default -- see its docstring
+    for why "largest" turned out to mean "34% of the building" on Rathaus.
     """
     labels = np.asarray(pcd.cluster_dbscan(eps=eps, min_points=min_points))
     if labels.max() < 0:
@@ -63,6 +64,38 @@ def keep_largest_cluster(pcd: o3d.geometry.PointCloud, eps: float, min_points: i
     counts = np.bincount(labels[labels >= 0])
     largest = int(np.argmax(counts))
     return pcd.select_by_index(np.where(labels == largest)[0])
+
+
+def keep_significant_clusters(
+    pcd: o3d.geometry.PointCloud,
+    eps: float,
+    min_points: int = 30,
+    min_fraction: float = 0.1,
+) -> o3d.geometry.PointCloud:
+    """
+    DBSCAN clustering, keeping every cluster at least `min_fraction` the
+    size of the largest one.
+
+    Same goal as keep_largest_cluster -- discard the streak artifacts that
+    survive density filtering but sit apart from the real surface -- without
+    its assumption that the real surface is one connected blob. It usually
+    isn't: windows, doorways and occlusion gaps cut a facade into pieces
+    that DBSCAN sees as separate at any eps small enough to still isolate
+    streaks. On Rathaus the "largest cluster" was 5,096 points of a 14,773
+    point building, and an entire wing (4,466 points) was being thrown away
+    as though it were an artifact.
+
+    A fraction rather than an absolute count keeps the rule scale-free: a
+    real structural piece is a sizeable share of the main surface, while
+    stereo streaks are small and stay below the bar.
+    """
+    labels = np.asarray(pcd.cluster_dbscan(eps=eps, min_points=min_points))
+    if labels.max() < 0:
+        return pcd  # all noise -- return unchanged rather than emptying the cloud
+    counts = np.bincount(labels[labels >= 0])
+    threshold = counts.max() * min_fraction
+    keep = {i for i, n in enumerate(counts) if n >= threshold}
+    return pcd.select_by_index(np.where(np.isin(labels, list(keep)))[0])
 
 
 def poisson_mesh(

@@ -23,7 +23,8 @@ sys.path.insert(0, str(ROOT))
 from sfm.io.fountain import default_fountain_dir, load_images
 from sfm.io.ply import write_xyzrgb_ply
 from sfm.mvs.fuse import dense_reconstruct
-from sfm.mvs.mesh import clean_dense_cloud, keep_largest_cluster, poisson_mesh, simplify_for_web
+from sfm.mvs.params import dense_params
+from sfm.mvs.mesh import clean_dense_cloud, keep_significant_clusters, poisson_mesh, simplify_for_web
 
 
 def main() -> None:
@@ -33,8 +34,12 @@ def main() -> None:
 
     images = load_images(default_fountain_dir())
 
-    min_depth, max_depth = np.percentile(sparse_xyz[:, 2], [1, 99])
-    print(f"Sparse depth range (guides dense stereo's sanity filter): {min_depth:.2f} - {max_depth:.2f}")
+    # Depth window + voxel size from per-camera depths, NOT from world Z --
+    # see sfm/mvs/params.py for why world Z silently stopped working.
+    params = dense_params(sparse_xyz, Rs, ts, Ks, downscale=2)
+    min_depth, max_depth = params.min_depth, params.max_depth
+    print(f"Sparse depth range (guides dense stereo's sanity filter): {min_depth:.2f} - {max_depth:.2f} "
+          f"({params.n_core_points:,}/{params.n_points:,} points seen in range by >=2 cameras)")
 
     t0 = time.time()
     points, colors = dense_reconstruct(
@@ -49,22 +54,22 @@ def main() -> None:
     write_xyzrgb_ply(raw_ply, points, colors)
     print(f"Wrote raw dense cloud -> {raw_ply}")
 
-    # Voxel size: robust (1st-99th percentile) bounding-box diagonal / ~250,
-    # so density scales sensibly regardless of the reconstruction's
-    # arbitrary SfM scale. Plain min/max would be thrown off by the handful
-    # of outlier sparse points still present even after RANSAC/BA cleanup.
-    lo, hi = np.percentile(sparse_xyz, [1, 99], axis=0)
-    bbox_diag = np.linalg.norm(hi - lo)
-    voxel_size = bbox_diag / 250
-    print(f"Voxel size: {voxel_size:.4f} (robust bbox diagonal {bbox_diag:.2f})")
+    # Voxel size: robust bounding-box diagonal / ~250, so density scales
+    # sensibly regardless of the reconstruction's arbitrary SfM scale. The
+    # extent is measured over the points at least two cameras see within
+    # the depth window above -- the subset dense stereo can actually
+    # reconstruct -- so far-field strays can't coarsen the whole pipeline.
+    voxel_size = params.voxel_size
+    print(f"Voxel size: {voxel_size:.4f} (12 pixel footprints; one pixel spans "
+          f"{params.pixel_footprint:.5f} at median depth {params.median_depth:.2f})")
 
     t0 = time.time()
     pcd = clean_dense_cloud(points, colors, voxel_size=voxel_size)
     print(f"Cleaned cloud (statistical + radius outlier removal): {len(pcd.points):,} points in {time.time()-t0:.1f}s")
 
     n_before_cluster = len(pcd.points)
-    pcd = keep_largest_cluster(pcd, eps=voxel_size * 4)
-    print(f"Largest connected cluster: {len(pcd.points):,}/{n_before_cluster:,} points")
+    pcd = keep_significant_clusters(pcd, eps=voxel_size * 4)
+    print(f"Significant clusters kept: {len(pcd.points):,}/{n_before_cluster:,} points")
 
     clean_xyz = np.asarray(pcd.points)
     clean_rgb = (np.asarray(pcd.colors) * 255).astype(np.uint8)
