@@ -174,7 +174,14 @@ def triangulate_new_points(
             cam_a.projection_matrix(), cam_b.projection_matrix(), pt_a[None, :], pt_b[None, :]
         )[0]
 
-        depth_a = xyz[2]
+        # Cheirality: the point must be in FRONT of both cameras. Depth has to
+        # be measured in each camera's own frame -- `xyz` is in world
+        # coordinates, and world Z is only camera depth for the seed camera
+        # (the one seed_two_view pins to identity). cam_a here is just
+        # whichever posed camera came first in the track, so transforming it
+        # is not optional: skipping the transform both accepts points behind
+        # cam_a and rejects valid points whose world Z happens to be negative.
+        depth_a = (cam_a.R @ xyz + cam_a.t)[2]
         depth_b = (cam_b.R @ xyz + cam_b.t)[2]
         if depth_a <= 0 or depth_b <= 0:
             continue  # cheirality failure for this pair; skip rather than add a bogus point
