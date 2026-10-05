@@ -12,7 +12,9 @@ See [PLAN.md](PLAN.md) for the full stage-by-stage build log and results, [ARCHI
 
 On the Fountain-P11 benchmark: all 11 cameras correctly recovered, **0.18px median reprojection error**, and (evaluated against an independent SfM solve of the same photos, via hand-derived Umeyama alignment on 11 corresponding camera centers) an **F-score of 0.88** at 10% of the camera baseline and **0.98** at 25%.
 
-The pipeline has also been run successfully on two other real datasets it was never tuned for — Rathaus (7 images) and Herzjesu (23 images, real camera EXIF, no pre-supplied calibration) — which surfaced and fixed two genuine bugs, including a documented degeneracy of linear PnP on near-planar scenes (see PLAN.md's "Evaluation & demo" section for the full story).
+Validated against **true camera matrices** on the Buddha MVS benchmark (67 views shipping ground-truth projection matrices): the hand-written two-view chain — RANSAC fundamental matrix, `E = KᵀFK`, four-way decomposition, cheirality — recovers relative rotation to a **median 0.137°** (p90 0.316°, max 0.50° over 54 well-overlapped pairs) and translation *direction* to a median 0.578°. This is a stronger claim than the Fountain F-score, which compares against another SfM solve rather than measured poses.
+
+The pipeline has also been run on Rathaus (7 images), Herzjesu (23 images, real EXIF) and five self-captured sets, which surfaced and fixed several genuine bugs: a degeneracy of linear PnP on near-planar scenes, a cheirality test performed in the wrong coordinate frame (found by code review), and three faults in how the dense stage derived its own parameters. PLAN.md records each one, what it cost, and how it was measured — including the capture geometry beyond which this pipeline stops working.
 
 ## Setup
 
@@ -37,6 +39,7 @@ Run everything with `.venv/bin/python3`, not the system `python3`.
 .venv/bin/python3 scripts/verify_hand_ba.py         # full pipeline with the hand-written LM solver
 .venv/bin/python3 scripts/verify_evaluation.py      # Umeyama alignment + Accuracy/Completeness/F-score
 .venv/bin/python3 scripts/verify_mvs.py             # dense stereo (MVS) + Poisson meshing
+.venv/bin/python3 scripts/verify_cheirality.py      # cheirality regression test (synthetic, no dataset needed)
 ```
 
 ### General reconstruction tool (any folder of photos)
@@ -67,7 +70,7 @@ sfm/geometry/  — F/E estimation, triangulation, PnP (hand-written)
 sfm/ba/        — Bundle Adjustment: scipy-backed, and hand-written Schur-complement LM
 sfm/recon/     — incremental SfM orchestration
 sfm/eval/      — Umeyama alignment, Accuracy/Completeness/F-score
-sfm/mvs/       — dense stereo, fusion, Poisson meshing
+sfm/mvs/       — dense stereo, fusion, Poisson meshing, dense-parameter derivation
 scripts/       — per-stage checks + the general reconstruct.py/export_viewer.py tools
 ```
 
@@ -75,4 +78,4 @@ Full dependency graph and data flow: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Datasets
 
-`Fountain/`, `rathaus/`, and `herzjesu/` are from the same benchmark family (Strecha et al.). Ground-truth caveat: Fountain-P11's real laser-scan ground truth is no longer hosted anywhere reachable; evaluation instead uses `Fountain/solution.graph`, an independent SfM solve of the same photos — see PLAN.md for what that does and doesn't prove.
+`dataset/Fountain/`, `dataset/rathaus/`, and `dataset/herzjesu/` are from the same benchmark family (Strecha et al.). Ground-truth caveat: Fountain-P11's real laser-scan ground truth is no longer hosted anywhere reachable; evaluation instead uses `dataset/Fountain/solution.graph`, an independent SfM solve of the same photos — see PLAN.md for what that does and doesn't prove.

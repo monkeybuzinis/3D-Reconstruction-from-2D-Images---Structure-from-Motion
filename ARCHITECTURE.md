@@ -49,6 +49,7 @@ flowchart TB
         STEREO["stereo.py<br/>rectify + StereoSGBM + WLS"]
         FUSE["fuse.py<br/>multi-pair dense reconstruct"]
         MESH["mesh.py<br/>clean + cluster + Poisson mesh"]
+        PARAMS["params.py<br/>depth window + voxel size"]
     end
 
     subgraph CORE["sfm/map.py — shared data model"]
@@ -92,6 +93,9 @@ flowchart TB
 - `sfm/map.py` is the one thing almost everything touches, since it's the shared state every stage reads from and writes into.
 - `sfm/recon/incremental.py` only *hard*-imports `sfm.ba.scipy_ba` as its default optimizer — the hand-written LM solver (`sfm.ba.lm.hand_bundle_adjust`) is passed in from the caller via a `bundle_adjust_fn` parameter, not imported by `sfm/recon` itself. Scripts choose which one to use.
 - `sfm/eval` and `sfm/mvs` are **fully standalone** — zero `sfm.*` imports, pure numpy/scipy/OpenCV/Open3D. They don't operate on a `Map` object; they take plain arrays (points, camera poses, images) that a script pulls out of a finished reconstruction. This is what makes them reusable post-processing steps rather than something wired into the core pipeline.
+- `sfm/mvs/params.py` exists because both MVS callers used to derive the depth window and
+  voxel size independently, from the sparse cloud's world-Z percentiles — wrong in two
+  separate ways (see its module docstring, and PLAN.md's "Dense-stage parameter derivation").
 - **The true top of the dependency graph is `scripts/`, not `sfm/recon`.** It's scripts that decide which BA to use, and whether to also run `sfm/eval` and/or `sfm/mvs` on the result.
 
 ## Pipeline data flow
@@ -165,7 +169,7 @@ scene_cache.npz  (cameras + colored sparse points -- the shared
 | `sfm/ba/` | Bundle Adjustment — jointly refines every camera + point. Two interchangeable optimizers: scipy-backed (`scipy_ba.py`) and hand-written Schur-complement LM (`so3.py` + `jacobian.py` + `lm.py`) | `sfm/map.py` |
 | `sfm/recon/` | Orchestration — calls features/geometry/ba in the right order, owns the incremental registration loop | `sfm/features`, `sfm/geometry`, `sfm/map`, `sfm/ba/scipy_ba` (default only) |
 | `sfm/eval/` | Umeyama alignment + Accuracy/Completeness/F-score against a reference reconstruction | nothing (standalone: numpy + scipy) |
-| `sfm/mvs/` | Dense stereo, multi-pair fusion, Poisson surface reconstruction | nothing (standalone: numpy + OpenCV contrib + Open3D) |
-| `scripts/` | Two kinds: dataset-specific `verify_*.py` checks (one per project stage, Fountain-P11 only), and the general-purpose tools — `reconstruct.py` (any photo folder → sparse/dense reconstruction), `export_viewer.py` (any finished reconstruction → interactive Artifact), `build_scene_cache.py` | `sfm/*` — this is the layer that actually wires `sfm/ba/lm`, `sfm/eval`, and `sfm/mvs` into a run |
+| `sfm/mvs/` | Dense stereo, multi-pair fusion, Poisson surface reconstruction, and the derivation of the dense stage's own parameters (`params.py`: depth window from per-camera depths, voxel size from the sensor's resolution limit) | nothing (standalone: numpy + OpenCV contrib + Open3D) |
+| `scripts/` | Two kinds: dataset-specific `verify_*.py` checks (one per project stage, Fountain-P11 only, plus `verify_cheirality.py` which is synthetic and needs no dataset), and the general-purpose tools — `reconstruct.py` (any photo folder → sparse/dense reconstruction), `export_viewer.py` (any finished reconstruction → interactive Artifact), `build_scene_cache.py` | `sfm/*` — this is the layer that actually wires `sfm/ba/lm`, `sfm/eval`, and `sfm/mvs` into a run |
 
 See [PLAN.md](PLAN.md) for which stages are done vs. upcoming, and the comments inside each file (added for exactly this kind of orientation) for the *why* behind each algorithm.
