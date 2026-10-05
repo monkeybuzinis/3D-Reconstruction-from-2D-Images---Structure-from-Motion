@@ -31,8 +31,8 @@ N_IMAGES = 11
 
 
 def default_fountain_dir() -> Path:
-    """The Fountain/ folder at the repo root, resolved relative to this file so it works from any cwd."""
-    return Path(__file__).resolve().parents[2] / "Fountain"
+    """The Fountain/ folder under dataset/ at the repo root, resolved relative to this file so it works from any cwd."""
+    return Path(__file__).resolve().parents[2] / "dataset" / "Fountain"
 
 
 def image_paths(fountain_dir: Path) -> List[Path]:
