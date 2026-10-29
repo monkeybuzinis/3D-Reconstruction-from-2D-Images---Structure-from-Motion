@@ -3,8 +3,9 @@ Dense reconstruction check: run pairwise dense stereo across all 11 Fountain
 cameras (using the poses already recovered by incremental SfM + hand BA),
 fuse into one dense colored cloud, then Poisson-mesh it.
 
-Uses the cached sparse scene from scripts/build_scene_cache.py -- run that
-first if outputs/scene_cache.npz doesn't exist yet.
+Uses the cached sparse scene at outputs/Fountain/scene_cache.npz -- run
+    scripts/reconstruct.py dataset/Fountain
+first if it doesn't exist yet.
 
 Run from the repo root:
     .venv/bin/python3 scripts/verify_mvs.py
@@ -28,7 +29,7 @@ from sfm.mvs.mesh import clean_dense_cloud, keep_significant_clusters, poisson_m
 
 
 def main() -> None:
-    cache = np.load(ROOT / "outputs" / "scene_cache.npz")
+    cache = np.load(ROOT / "outputs" / "Fountain" / "scene_cache.npz")
     cam_ids, Ks, Rs, ts = cache["cam_ids"], cache["Ks"], cache["Rs"], cache["ts"]
     sparse_xyz = cache["xyz"]
 
@@ -47,7 +48,7 @@ def main() -> None:
     )
     print(f"Dense stereo across {len(cam_ids)-1} pairs: {points.shape[0]:,} raw points in {time.time()-t0:.1f}s")
 
-    out_dir = ROOT / "outputs" / "mvs"
+    out_dir = ROOT / "outputs" / "_stages" / "mvs"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     raw_ply = out_dir / "fountain_dense_raw.ply"

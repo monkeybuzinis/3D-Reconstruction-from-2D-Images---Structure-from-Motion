@@ -103,7 +103,7 @@ def main() -> None:
     print(f"Re-optimized after filtering: cost before={stats['cost_before']:.2f}  cost after={stats['cost_after']:.2f}")
     report("After filter + re-BA", scene)
 
-    out_dir = ROOT / "outputs" / "incremental"
+    out_dir = ROOT / "outputs" / "_stages" / "incremental"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     xyz = scene.points_xyz()

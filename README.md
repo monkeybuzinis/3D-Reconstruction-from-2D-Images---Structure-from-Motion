@@ -14,6 +14,10 @@ On the Fountain-P11 benchmark: all 11 cameras correctly recovered, **0.18px medi
 
 Validated against **true camera matrices** on the Buddha MVS benchmark (67 views shipping ground-truth projection matrices): the hand-written two-view chain — RANSAC fundamental matrix, `E = KᵀFK`, four-way decomposition, cheirality — recovers relative rotation to a **median 0.137°** (p90 0.316°, max 0.50° over 54 well-overlapped pairs) and translation *direction* to a median 0.578°. This is a stronger claim than the Fountain F-score, which compares against another SfM solve rather than measured poses.
 
+On **Rathaus**, the one dataset here that ships both true per-image calibration and a reference point cloud, the full pipeline (not just the two-view chain) scores against measured geometry: all 7 cameras registered with a **mean orientation error of 0.111°** and camera centres within **0.35% of the inter-camera baseline**, and 99.6% of the surveyed reference points have one of our points within 10% of that baseline. The reference frame is internally consistent but not metric — see PLAN.md for what that does and doesn't establish.
+
+**Compared against COLMAP** on all twelve datasets, with both systems given the same photographs and no tuning on either side. On Rathaus, scored against true calibration with COLMAP given the same intrinsics, the two are comparable: **0.111° against 0.181°** mean orientation error. The two solves agree to within 1.3° of rotation on Fountain, Rathaus, woodlog and office. The comparison also corrected an earlier conclusion of this project's: several self-captured sets that this pipeline could not reconstruct, COLMAP can — so those are implementation limits, not capture limits. `dataset/robotpu` is the one genuine capture failure, where both systems register 2 of 39 images. PLAN.md records the measured operating envelope and where it breaks.
+
 The pipeline has also been run on Rathaus (7 images), Herzjesu (23 images, real EXIF) and five self-captured sets, which surfaced and fixed several genuine bugs: a degeneracy of linear PnP on near-planar scenes, a cheirality test performed in the wrong coordinate frame (found by code review), and three faults in how the dense stage derived its own parameters. PLAN.md records each one, what it cost, and how it was measured — including the capture geometry beyond which this pipeline stops working.
 
 ## Setup
@@ -38,6 +42,10 @@ Run everything with `.venv/bin/python3`, not the system `python3`.
 .venv/bin/python3 scripts/verify_ba_jacobian.py      # finite-difference check of the analytic BA Jacobian
 .venv/bin/python3 scripts/verify_hand_ba.py         # full pipeline with the hand-written LM solver
 .venv/bin/python3 scripts/verify_evaluation.py      # Umeyama alignment + Accuracy/Completeness/F-score
+.venv/bin/python3 scripts/verify_rathaus_evaluation.py  # pose + structure vs Rathaus's shipped ground truth
+.venv/bin/python3 scripts/compare_colmap.py        # external baseline: COLMAP over the same photos
+.venv/bin/python3 scripts/capture_geometry.py      # capture statistics from both solves, side by side
+.venv/bin/python3 scripts/verify_subject_coverage.py guitar shoe   # did the points land on the subject?
 .venv/bin/python3 scripts/verify_mvs.py             # dense stereo (MVS) + Poisson meshing
 .venv/bin/python3 scripts/verify_cheirality.py      # cheirality regression test (synthetic, no dataset needed)
 ```
@@ -78,4 +86,4 @@ Full dependency graph and data flow: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Datasets
 
-`dataset/Fountain/`, `dataset/rathaus/`, and `dataset/herzjesu/` are from the same benchmark family (Strecha et al.). Ground-truth caveat: Fountain-P11's real laser-scan ground truth is no longer hosted anywhere reachable; evaluation instead uses `dataset/Fountain/solution.graph`, an independent SfM solve of the same photos — see PLAN.md for what that does and doesn't prove.
+`dataset/Fountain/`, `dataset/rathaus/`, and `dataset/herzjesu/` are from the same benchmark family (Strecha et al.). Ground-truth caveat: Fountain-P11's real laser-scan ground truth is no longer hosted anywhere reachable; evaluation instead uses `dataset/Fountain/solution.graph`, an independent SfM solve of the same photos — see PLAN.md for what that does and doesn't prove. `dataset/rathaus/` is the exception: its `.camera` and `.3Dpoints` sidecars are externally measured, and `scripts/verify_rathaus_evaluation.py` scores against them.

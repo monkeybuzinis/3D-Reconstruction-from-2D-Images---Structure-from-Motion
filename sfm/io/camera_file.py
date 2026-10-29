@@ -7,7 +7,7 @@ specifically for the case where nothing better is available.
 
 Documented projection convention (from the dataset's own README):
 
-    x = K [R^T | -R^T t] X
+    
 
 i.e. R is the camera's camera-to-world orientation and t IS the camera
 center directly -- the opposite convention from sfm/map.py's Camera, which

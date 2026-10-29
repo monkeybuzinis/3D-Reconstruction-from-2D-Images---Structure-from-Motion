@@ -29,6 +29,15 @@ def normalize_points(pts: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     centroid = np.mean(pts, axis=0)
     shifted = pts - centroid
     mean_dist = np.mean(np.linalg.norm(shifted, axis=1))
+    if mean_dist < 1e-12:
+        # Every point in the sample sits at the same place, so there is no
+        # spread to normalise against. Without this the scale below is inf,
+        # the conditioned points come out NaN, and the SVD raises several
+        # frames later -- caught by RANSAC's handler, but only after the
+        # iteration is wasted and NumPy has printed a divide-by-zero
+        # warning. Raising here matches linear_pnp_dlt, which already
+        # guards the identical operation.
+        raise np.linalg.LinAlgError("Degenerate (coincident) points for Hartley normalization")
     scale = np.sqrt(2) / mean_dist
 
     T = np.array(

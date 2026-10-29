@@ -80,7 +80,7 @@ def main() -> None:
         p, r, f = metrics[f"precision@{tau}"], metrics[f"recall@{tau}"], metrics[f"f_score@{tau}"]
         print(f"  tau={tau:.5f}:  precision={p:.3f}  recall={r:.3f}  f_score={f:.3f}")
 
-    out_dir = ROOT / "outputs" / "eval"
+    out_dir = ROOT / "evaluation" / "metrics"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     fig = plt.figure(figsize=(9, 8))

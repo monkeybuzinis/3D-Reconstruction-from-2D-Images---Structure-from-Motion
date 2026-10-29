@@ -31,7 +31,7 @@ every parameter at once.
 
 from __future__ import annotations
 
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -158,9 +158,41 @@ def _solve_and_apply(
         scene.points[pid].xyz = scene.points[pid].xyz + delta_X
 
 
+def _rescale_to_unit_baseline(scene: Map, gauge_pair: Sequence[int]) -> None:
+    """
+    Pin the scene's scale so the gauge pair sits one unit apart.
+
+    Fixing one camera removes 3 rotation and 3 translation degrees of
+    freedom, but a similarity has 7. Scale is still free, and reprojection
+    error cannot see it: multiplying every camera centre and every point by
+    the same factor leaves each projection unchanged, because the factor
+    cancels in the perspective division. The normal equations are therefore
+    singular along that direction and the solve drifts in scale between
+    iterations -- measurably so, by more than 4x on some datasets.
+
+    Rescaling after each accepted step removes the null direction without
+    changing the cost. The fixed camera sits at the origin with t = 0, so
+    scaling about the origin leaves it exactly where it was.
+    """
+    a, b = gauge_pair[0], gauge_pair[1]
+    if a not in scene.cameras or b not in scene.cameras:
+        return
+    ca = -scene.cameras[a].R.T @ scene.cameras[a].t
+    cb = -scene.cameras[b].R.T @ scene.cameras[b].t
+    d = float(np.linalg.norm(cb - ca))
+    if not np.isfinite(d) or d < 1e-12:
+        return
+    k = 1.0 / d
+    for cam in scene.cameras.values():
+        cam.t = cam.t * k
+    for pt in scene.points.values():
+        pt.xyz = pt.xyz * k
+
+
 def hand_bundle_adjust(
     scene: Map,
     fixed_camera_ids: Sequence[int] = (0,),
+    gauge_pair: Optional[Sequence[int]] = None,
     max_iters: int = 30,
     damping0: float = 1e-3,
     damping_up: float = 10.0,
@@ -179,9 +211,18 @@ def hand_bundle_adjust(
     dropped, otherwise undo it and tighten damping (making the step more
     like gradient descent, which is more reliable near a bad linearization)
     and try again.
+
+    fixed_camera_ids pins rotation and translation. It does not pin scale,
+    which is the 7th degree of freedom of a similarity; pass gauge_pair (the
+    two seed cameras) to pin that as well. See _rescale_to_unit_baseline.
     """
     free_camera_ids = [cid for cid in sorted(scene.cameras) if cid not in fixed_camera_ids]
     point_ids = sorted(scene.points)
+
+    # Fix the scale gauge before measuring anything, so cost0 and the final
+    # cost are reported in the same units.
+    if gauge_pair is not None:
+        _rescale_to_unit_baseline(scene, gauge_pair)
 
     cost0 = _total_cost(scene)
     cost = cost0
@@ -208,6 +249,8 @@ def hand_bundle_adjust(
         if new_cost < cost:
             improvement = cost - new_cost
             cost = new_cost
+            if gauge_pair is not None:
+                _rescale_to_unit_baseline(scene, gauge_pair)
             damping = max(damping / damping_down, 1e-12)
             if verbose:
                 print(f"  iter {iteration:3d}: accepted, cost={cost:.4f}, damping={damping:.2e}")

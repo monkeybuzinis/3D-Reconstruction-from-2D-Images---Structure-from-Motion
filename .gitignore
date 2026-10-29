@@ -2,10 +2,23 @@
 __pycache__/
 *.pyc
 outputs/
+colmap/
+evaluation/
+archive/
 dataset/buddha*/
 dataset/buffalo*/
 dataset/statue/
 dataset/child-statue/
 dataset/open-mouth/
 *.pdf
-"Untitled Document 1"
+Untitled Document 1
+dataset/church/
+dataset/fire-hydrant/
+dataset/guitar/
+dataset/library-statue/
+dataset/office/
+dataset/robotpu/
+dataset/shoe/
+dataset/woodlog/
+dataset/iCloud Photos*/
+documents/

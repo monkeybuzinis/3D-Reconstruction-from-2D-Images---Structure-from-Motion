@@ -1,5 +1,6 @@
 numpy
 opencv-contrib-python>=4.8.0
 matplotlib
+pillow
 scipy
 open3d

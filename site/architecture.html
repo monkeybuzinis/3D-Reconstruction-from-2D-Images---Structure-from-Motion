@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="System architecture of a from-scratch classical Structure-from-Motion pipeline: layers, packages, dependency rules and data contracts.">
+<title>SfM Pipeline — System Architecture</title>
+<style>:root{color-scheme:dark}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root {
+  --void:#0a0d12; --panel:#12161d; --panel-2:#161b24; --border:#262d38; --border-soft:#1c222b;
+  --text:#e8ecf1; --dim:#8993a4; --faint:#5b6472; --accent:#5ec8d8; --warm:#d99a5e; --good:#7fd1a4;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--void);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.6;
+  padding-inline:20px;padding-block:48px 80px}
+.wrap{max-width:1120px;margin-inline:auto;display:flex;flex-direction:column;gap:72px}
+h1,h2,h3{margin:0;font-weight:600;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:clamp(2rem,5vw,3rem);line-height:1.05}
+h2{font-size:1.5rem} h3{font-size:1.05rem}
+p{margin:0}
+a{color:var(--accent)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+header{display:flex;flex-direction:column;gap:16px}
+.lede{max-width:66ch;color:var(--dim);font-size:1.1rem}
+.lede strong{color:var(--text);font-weight:500}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--border);
+  border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-top:12px}
+.metric{background:var(--panel);padding:18px 20px;display:flex;flex-direction:column;gap:4px}
+.metric b{font-family:var(--mono);font-size:1.7rem;font-weight:500;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.1}
+.metric span{font-size:12.5px;color:var(--dim)}
+section{display:flex;flex-direction:column;gap:24px}
+.sec-head{display:flex;flex-direction:column;gap:8px;max-width:74ch}
+.sec-head p{color:var(--dim)}
+figure{margin:0;display:flex;flex-direction:column;gap:14px}
+.fig{overflow-x:auto;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:20px}
+.fig svg{display:block;width:100%;min-width:820px;height:auto}
+figcaption{color:var(--dim);font-size:13.5px;max-width:80ch}
+.band{fill:var(--panel-2)}
+.band-lbl{font-family:var(--mono);font-size:11px;letter-spacing:.1em;fill:var(--faint)}
+.bx{fill:var(--panel);stroke:var(--border);stroke-width:1.2}
+.bx.core{stroke:var(--accent)}
+.bx.state{stroke:var(--good)}
+.bx.ext{stroke:var(--warm);stroke-dasharray:4 3}
+.bt{fill:var(--text);font-family:var(--mono);font-size:13px;font-weight:500}
+.bt.sm{font-size:12px}
+.bs{fill:var(--dim);font-family:var(--sans);font-size:11.5px}
+.bn{fill:var(--faint);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em}
+.dep-arrow{stroke:var(--faint);stroke-width:1.4;fill:none}
+.dep-lbl{fill:var(--faint);font-family:var(--sans);font-size:11px}
+.tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:18px;align-items:start}
+.tier{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.tier.t2{border-left:2px solid var(--accent)}
+.tier h3 span{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:3px}
+.tier > p{font-size:13px;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:3px;padding:4px 7px;color:var(--text);background:var(--panel-2)}
+.chip .d{color:var(--faint)}
+.chip.hub{border-color:var(--good);color:var(--good)}
+.rules{display:flex;flex-direction:column}
+.rule{display:grid;grid-template-columns:30px 1fr;gap:14px;padding-block:18px;border-top:1px solid var(--border-soft)}
+.rule:first-child{border-top:0}
+.rule .n{font-family:var(--mono);font-size:13px;color:var(--faint);padding-top:2px}
+.rule h3{margin-bottom:6px}
+.rule p{color:var(--dim);font-size:14px;max-width:80ch}
+.rule code{font-family:var(--mono);font-size:12.5px;color:var(--text)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+.col{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+.col.mem{border-left:2px solid var(--accent)}
+.col.disk{border-left:2px solid var(--good)}
+.col h3 span{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:2px}
+.col p{font-size:13.5px;color:var(--dim)}
+.col pre{margin:0;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:4px;padding:12px 14px;
+  overflow-x:auto;font-family:var(--mono);font-size:12px;line-height:1.75;color:var(--text)}
+.col pre .c{color:var(--faint)}
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:6px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:14px}
+th,td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top}
+tr:last-child td{border-bottom:0}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:400}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.mono{font-family:var(--mono);font-size:13px;white-space:nowrap}
+td .sub{color:var(--dim);font-size:13px}
+footer{border-top:1px solid var(--border);padding-top:24px;color:var(--dim);font-size:13.5px;
+  display:flex;flex-wrap:wrap;gap:8px 28px;justify-content:space-between}
+@media (max-width:640px){ body{padding-inline:14px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">Capstone · Structure from Motion</span>
+  <h1>System architecture</h1>
+  <p class="lede">A classical Structure-from-Motion pipeline written from scratch in Python. The geometry — epipolar estimation, pose recovery, triangulation, resectioning and bundle adjustment — is <strong>implemented, not called</strong>. Libraries are used only for feature detection, dense block matching and surface meshing. This page is the structural view: the layers, what each package owns, the rules the dependency graph obeys, and the two contracts everything passes through.</p>
+  <div class="metrics">
+    <div class="metric"><b>26</b><span>modules in sfm/</span></div>
+    <div class="metric"><b>3,310</b><span>lines in the core library</span></div>
+    <div class="metric"><b>23</b><span>entry-point scripts</span></div>
+    <div class="metric"><b>3</b><span>dependency tiers</span></div>
+    <div class="metric"><b>0</b><span>import cycles</span></div>
+  </div>
+</header>
+
+<section id="layers">
+  <div class="sec-head">
+    <span class="eyebrow">Layer view</span>
+    <h2>Four layers, one direction</h2>
+    <p>Every arrow in this system points downward. Scripts call the library; the library reads and writes shared state; only two packages touch anything outside the project. Nothing in the core library imports a script, and nothing in a lower layer imports a higher one.</p>
+  </div>
+  <figure>
+    <div class="fig">
+      <svg viewBox="0 0 940 540" role="img" aria-label="Four-layer architecture: entry-point scripts on top, the sfm core library beneath it, shared state below that, and external libraries at the bottom.">
+        <rect class="band" x="-10" y="20" width="960" height="72" rx="4"/>
+        <text class="band-lbl" x="0" y="14">LAYER 1 · ENTRY POINTS — scripts/</text>
+        <g>
+          <rect class="bx" x="0" y="30" width="176" height="54" rx="3"/>
+          <text class="bt sm" x="12" y="52">reconstruct.py</text><text class="bs" x="12" y="70">the pipeline, any photo folder</text>
+          <rect class="bx" x="191" y="30" width="176" height="54" rx="3"/>
+          <text class="bt sm" x="203" y="52">evaluate.py</text><text class="bs" x="203" y="70">accuracy vs reference geometry</text>
+          <rect class="bx" x="382" y="30" width="176" height="54" rx="3"/>
+          <text class="bt sm" x="394" y="52">compare_colmap.py</text><text class="bs" x="394" y="70">external baseline, 13 datasets</text>
+          <rect class="bx" x="573" y="30" width="176" height="54" rx="3"/>
+          <text class="bt sm" x="585" y="52">verify_*.py  ×11</text><text class="bs" x="585" y="70">one check per build stage</text>
+          <rect class="bx" x="764" y="30" width="176" height="54" rx="3"/>
+          <text class="bt sm" x="776" y="52">export_* · *_figures</text><text class="bs" x="776" y="70">viewers and report figures</text>
+        </g>
+
+        <path class="dep-arrow" d="M470,92 L470,112" marker-end="url(#ar)"/>
+        <text class="dep-lbl" x="480" y="107">calls</text>
+
+        <rect class="band" x="-10" y="120" width="960" height="200" rx="4"/>
+        <text class="band-lbl" x="0" y="112">LAYER 2 · CORE LIBRARY — sfm/ · 26 modules · 3,310 lines</text>
+        <g>
+          <rect class="bx core" x="0" y="130" width="220" height="84" rx="3"/>
+          <text class="bt" x="14" y="152">sfm/io/</text><text class="bn" x="196" y="152" text-anchor="end">7</text>
+          <text class="bs" x="14" y="172">Loading, intrinsics resolution,</text><text class="bs" x="14" y="188">PLY output, reference parsing</text>
+          <text class="bn" x="14" y="205">OPENCV · PILLOW</text>
+
+          <rect class="bx core" x="240" y="130" width="220" height="84" rx="3"/>
+          <text class="bt" x="254" y="152">sfm/features/</text><text class="bn" x="436" y="152" text-anchor="end">2</text>
+          <text class="bs" x="254" y="172">SIFT and FLANN wrapper,</text><text class="bs" x="254" y="188">union-find track construction</text>
+          <text class="bn" x="254" y="205">OPENCV</text>
+
+          <rect class="bx core" x="480" y="130" width="220" height="84" rx="3"/>
+          <text class="bt" x="494" y="152">sfm/geometry/</text><text class="bn" x="676" y="152" text-anchor="end">4</text>
+          <text class="bs" x="494" y="172">Fundamental, essential,</text><text class="bs" x="494" y="188">triangulation, PnP resectioning</text>
+          <text class="bn" x="494" y="205">NUMPY ONLY</text>
+
+          <rect class="bx core" x="720" y="130" width="220" height="84" rx="3"/>
+          <text class="bt" x="734" y="152">sfm/ba/</text><text class="bn" x="916" y="152" text-anchor="end">4</text>
+          <text class="bs" x="734" y="172">so(3), analytic Jacobian,</text><text class="bs" x="734" y="188">Schur-complement LM</text>
+          <text class="bn" x="734" y="205">SCIPY (REFERENCE ONLY)</text>
+
+          <rect class="bx core" x="120" y="226" width="220" height="84" rx="3"/>
+          <text class="bt" x="134" y="248">sfm/recon/</text><text class="bn" x="316" y="248" text-anchor="end">2</text>
+          <text class="bs" x="134" y="268">Two-view seed, incremental</text><text class="bs" x="134" y="284">loop, outlier and depth filters</text>
+          <text class="bn" x="134" y="301">ORCHESTRATOR</text>
+
+          <rect class="bx core" x="360" y="226" width="220" height="84" rx="3"/>
+          <text class="bt" x="374" y="248">sfm/mvs/</text><text class="bn" x="556" y="248" text-anchor="end">4</text>
+          <text class="bs" x="374" y="268">Rectified stereo, fusion,</text><text class="bs" x="374" y="284">parameter derivation, meshing</text>
+          <text class="bn" x="374" y="301">OPENCV · OPEN3D</text>
+
+          <rect class="bx core" x="600" y="226" width="220" height="84" rx="3"/>
+          <text class="bt" x="614" y="248">sfm/eval/</text><text class="bn" x="796" y="248" text-anchor="end">2</text>
+          <text class="bs" x="614" y="268">Umeyama alignment; accuracy,</text><text class="bs" x="614" y="284">completeness and F-score</text>
+          <text class="bn" x="614" y="301">SCIPY (KD-TREE)</text>
+        </g>
+
+        <path class="dep-arrow" d="M470,320 L470,340" marker-end="url(#ar)"/>
+        <text class="dep-lbl" x="480" y="335">reads and writes</text>
+
+        <rect class="band" x="-10" y="348" width="960" height="76" rx="4"/>
+        <text class="band-lbl" x="0" y="340">LAYER 3 · SHARED STATE</text>
+        <g>
+          <rect class="bx state" x="0" y="358" width="300" height="58" rx="3"/>
+          <text class="bt sm" x="14" y="380">sfm/map.py — in process</text>
+          <text class="bs" x="14" y="400">Camera · Point3D · Observation · Map</text>
+          <rect class="bx state" x="320" y="358" width="620" height="58" rx="3"/>
+          <text class="bt sm" x="334" y="380">outputs/&lt;dataset&gt;/scene_cache.npz — on disk</text>
+          <text class="bs" x="334" y="400">cam_ids · Ks · Rs · ts · widths · heights · xyz · colors — plain NumPy arrays, no project types</text>
+        </g>
+
+        <path class="dep-arrow" d="M470,424 L470,444" marker-end="url(#ar)"/>
+
+        <rect class="band" x="-10" y="452" width="960" height="66" rx="4"/>
+        <text class="band-lbl" x="0" y="444">LAYER 4 · EXTERNAL</text>
+        <g>
+          <rect class="bx ext" x="0" y="462" width="140" height="46" rx="3"/>
+          <text class="bt sm" x="70" y="482" text-anchor="middle">OpenCV</text><text class="bs" x="70" y="498" text-anchor="middle">5.0.0</text>
+          <rect class="bx ext" x="160" y="462" width="140" height="46" rx="3"/>
+          <text class="bt sm" x="230" y="482" text-anchor="middle">NumPy</text><text class="bs" x="230" y="498" text-anchor="middle">2.5.2</text>
+          <rect class="bx ext" x="320" y="462" width="140" height="46" rx="3"/>
+          <text class="bt sm" x="390" y="482" text-anchor="middle">SciPy</text><text class="bs" x="390" y="498" text-anchor="middle">1.18.1</text>
+          <rect class="bx ext" x="480" y="462" width="140" height="46" rx="3"/>
+          <text class="bt sm" x="550" y="482" text-anchor="middle">Open3D</text><text class="bs" x="550" y="498" text-anchor="middle">0.19.0</text>
+          <rect class="bx ext" x="640" y="462" width="140" height="46" rx="3"/>
+          <text class="bt sm" x="710" y="482" text-anchor="middle">Pillow</text><text class="bs" x="710" y="498" text-anchor="middle">EXIF only</text>
+          <rect class="bx ext" x="800" y="462" width="140" height="46" rx="3"/>
+          <text class="bt sm" x="870" y="482" text-anchor="middle">pycolmap</text><text class="bs" x="870" y="498" text-anchor="middle">baseline only</text>
+        </g>
+
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path fill="#5b6472" d="M0,0 L10,5 L0,10 z"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+    <figcaption>Figure 1. The module count sits in the top-right of each package box; the small caption underneath names what that package depends on outside the project. <code>sfm/geometry/</code> — the part of the system the project is actually about — reaches for nothing but <code>np.linalg.svd</code>.</figcaption>
+  </figure>
+</section>
+
+<section id="tiers">
+  <div class="sec-head">
+    <span class="eyebrow">Dependency graph</span>
+    <h2>Three tiers, no cycles</h2>
+    <p>Every module sits in one of three tiers by how deep its import chain goes. Tier 0 imports nothing from the project at all. Tier 1 imports only tier 0. Tier 2 is as deep as the graph gets. A module can only import from a strictly lower tier, which is what keeps the graph acyclic and keeps any single stage testable in isolation.</p>
+  </div>
+  <div class="tiers">
+    <div class="tier">
+      <h3><span>Tier 0 · 15 modules</span>No project imports</h3>
+      <p>Self-contained. Each can be imported, tested and reasoned about with no other part of the system present.</p>
+      <div class="chips">
+        <span class="chip hub"><span class="d">sfm/</span>map.py</span>
+        <span class="chip"><span class="d">geometry/</span>fundamental.py</span>
+        <span class="chip"><span class="d">geometry/</span>triangulation.py</span>
+        <span class="chip"><span class="d">geometry/</span>pnp.py</span>
+        <span class="chip"><span class="d">ba/</span>so3.py</span>
+        <span class="chip"><span class="d">io/</span>calibration.py</span>
+        <span class="chip"><span class="d">io/</span>camera_file.py</span>
+        <span class="chip"><span class="d">io/</span>reference.py</span>
+        <span class="chip"><span class="d">io/</span>ply.py</span>
+        <span class="chip"><span class="d">features/</span>matching.py</span>
+        <span class="chip"><span class="d">mvs/</span>stereo.py</span>
+        <span class="chip"><span class="d">mvs/</span>mesh.py</span>
+        <span class="chip"><span class="d">mvs/</span>params.py</span>
+        <span class="chip"><span class="d">eval/</span>umeyama.py</span>
+        <span class="chip"><span class="d">eval/</span>metrics.py</span>
+      </div>
+    </div>
+    <div class="tier">
+      <h3><span>Tier 1 · 8 modules</span>Import tier 0 only</h3>
+      <p>One composition step: each combines a couple of tier-0 pieces into a usable stage.</p>
+      <div class="chips">
+        <span class="chip"><span class="d">io/</span>generic.py</span>
+        <span class="chip"><span class="d">io/</span>colorize.py</span>
+        <span class="chip"><span class="d">io/</span>fountain.py</span>
+        <span class="chip"><span class="d">features/</span>tracks.py</span>
+        <span class="chip"><span class="d">geometry/</span>essential.py</span>
+        <span class="chip"><span class="d">ba/</span>jacobian.py</span>
+        <span class="chip"><span class="d">ba/</span>scipy_ba.py</span>
+        <span class="chip"><span class="d">mvs/</span>fuse.py</span>
+      </div>
+    </div>
+    <div class="tier t2">
+      <h3><span>Tier 2 · 3 modules</span>The deepest the graph goes</h3>
+      <p>The composers. <code class="chip" style="padding:0;border:0;background:none">incremental.py</code> is the orchestrator and the largest module in the project at 479 lines.</p>
+      <div class="chips">
+        <span class="chip"><span class="d">recon/</span>incremental.py</span>
+        <span class="chip"><span class="d">recon/</span>two_view.py</span>
+        <span class="chip"><span class="d">ba/</span>lm.py</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="rules">
+  <div class="sec-head">
+    <span class="eyebrow">Invariants</span>
+    <h2>Five rules the structure holds to</h2>
+    <p>These are properties of the import graph as it stands, not aspirations. Each one buys something concrete.</p>
+  </div>
+  <div class="rules">
+    <div class="rule"><div class="n">01</div><div>
+      <h3>map.py imports nothing and is imported by seven modules</h3>
+      <p>It holds <code>Camera</code>, <code>Point3D</code>, <code>Observation</code> and <code>Map</code> — the shared scene graph. Because it depends on no other part of the project, it can sit at the centre of the system without creating a cycle, and every stage that mutates the scene speaks the same vocabulary.</p>
+    </div></div>
+    <div class="rule"><div class="n">02</div><div>
+      <h3>geometry/ imports nothing but itself</h3>
+      <p>Three of its four modules import no project code at all; the fourth, <code>essential.py</code>, imports only <code>triangulation.py</code> for the cheirality test. The epipolar mathematics has no knowledge of file formats, of the scene graph or of the incremental loop, so each estimator can be tested against synthetic data with nothing else loaded.</p>
+    </div></div>
+    <div class="rule"><div class="n">03</div><div>
+      <h3>mvs/ and eval/ import nothing from the rest of sfm/</h3>
+      <p>Both take plain NumPy arrays. That is the reason <code>scene_cache.npz</code> works as a hand-off: dense reconstruction and evaluation can run against a finished solve without the pipeline, the scene graph, or even the original photographs being loaded.</p>
+    </div></div>
+    <div class="rule"><div class="n">04</div><div>
+      <h3>The bundle adjuster is injected, not imported</h3>
+      <p><code>recon/incremental.py</code> imports <code>ba/scipy_ba.py</code> as a default and never imports <code>ba/lm.py</code>. The hand-written Levenberg–Marquardt solver is passed in as <code>bundle_adjust_fn</code> by the calling script. The two solvers share an interface, so the same loop runs on either — which is what made measuring one against the other possible at all.</p>
+    </div></div>
+    <div class="rule"><div class="n">05</div><div>
+      <h3>Scripts are the only layer that knows about datasets</h3>
+      <p>No module in <code>sfm/</code> contains a dataset path, with the single deliberate exception of <code>io/fountain.py</code>, which exists to encapsulate one benchmark's fixed layout. Everything else takes a folder and a camera matrix.</p>
+    </div></div>
+  </div>
+</section>
+
+<section id="contracts">
+  <div class="sec-head">
+    <span class="eyebrow">Data contracts</span>
+    <h2>Two hand-offs, and nothing else</h2>
+    <p>All state in the system passes through one of these. The first lives in memory for the length of a run; the second survives it.</p>
+  </div>
+  <div class="cols">
+    <div class="col mem">
+      <h3><span>In process</span>sfm/map.py</h3>
+      <p>The scene graph that every core stage reads and mutates. Observations live in one flat list with two index dictionaries pointing into it, so bundle adjustment can walk one point's views or one camera's views without scanning the whole set.</p>
+      <pre><span class="c"># the four types</span>
+Camera      id, K, R, t, width, height
+Point3D     id, xyz, color
+Observation camera_id, point_id, uv
+Map         cameras, points, observations
+            + index by camera, index by point</pre>
+      <p>Written by <code>recon/</code>, refined by <code>ba/</code>, coloured by <code>io/colorize.py</code>, serialised by <code>io/ply.py</code>.</p>
+    </div>
+    <div class="col disk">
+      <h3><span>On disk</span>scene_cache.npz</h3>
+      <p>The boundary between reconstruction and everything downstream. Deliberately plain: eight NumPy arrays and no project types, so evaluation, dense stereo, figures and the web viewers all read a finished solve without importing the pipeline or re-running it.</p>
+      <pre><span class="c"># outputs/&lt;dataset&gt;/scene_cache.npz</span>
+cam_ids   (N,)      Ks       (N,3,3)
+Rs        (N,3,3)   ts       (N,3)
+widths    (N,)      heights  (N,)
+xyz       (M,3)     colors   (M,3)</pre>
+      <p>Written by <code>reconstruct.py</code>; read by twelve scripts, including every evaluation and figure path.</p>
+    </div>
+  </div>
+</section>
+
+<section id="packages">
+  <div class="sec-head">
+    <span class="eyebrow">Package reference</span>
+    <h2>What each package owns</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Package</th><th class="num">Modules</th><th class="num">Lines</th><th>Responsibility</th><th>Depends on</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">sfm/io/</td><td class="num">7</td><td class="num">557</td><td>Image loading, intrinsics resolution in order of trust, calibration sidecar parsing, point colouring, PLY output, reference-data parsing</td><td class="sub">map.py</td></tr>
+        <tr><td class="mono">sfm/features/</td><td class="num">2</td><td class="num">240</td><td>SIFT detection and FLANN matching with the ratio test; union-find construction of multi-view tracks</td><td class="sub">geometry/</td></tr>
+        <tr><td class="mono">sfm/geometry/</td><td class="num">4</td><td class="num">497</td><td>Hartley normalization, eight-point algorithm, Sampson distance, RANSAC, essential decomposition, cheirality, DLT triangulation, calibrated resectioning</td><td class="sub">itself only</td></tr>
+        <tr><td class="mono">sfm/ba/</td><td class="num">4</td><td class="num">560</td><td>so(3) exponential map, analytic reprojection Jacobian, Schur-complement Levenberg–Marquardt, and a SciPy reference solver behind the same interface</td><td class="sub">map.py</td></tr>
+        <tr><td class="mono">sfm/recon/</td><td class="num">2</td><td class="num">556</td><td>Two-view seed and gauge fixing, the incremental registration loop, outlier, depth and degeneracy filters</td><td class="sub">features/ geometry/ ba/ map.py</td></tr>
+        <tr><td class="mono">sfm/mvs/</td><td class="num">4</td><td class="num">520</td><td>Rectified stereo and depth fusion, derivation of dense parameters from camera geometry, cleaning, clustering and Poisson meshing</td><td class="sub">itself only</td></tr>
+        <tr><td class="mono">sfm/eval/</td><td class="num">2</td><td class="num">137</td><td>Umeyama similarity alignment; accuracy, completeness, precision, recall and F-score</td><td class="sub">nothing</td></tr>
+        <tr><td class="mono">sfm/map.py</td><td class="num">1</td><td class="num">144</td><td>The shared scene graph passed between every core stage</td><td class="sub">nothing</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="entry">
+  <div class="sec-head">
+    <span class="eyebrow">Entry points</span>
+    <h2>How the system is driven</h2>
+    <p>One script reconstructs, two measure, eleven verify a single stage each, and the rest export. Only <code>reconstruct.py</code> runs on arbitrary new photographs.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Script</th><th>Purpose</th><th>Reads</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">reconstruct.py</td><td>Sparse reconstruction of any photo folder; <code>--dense</code> adds stereo and meshing</td><td class="sub">a folder of photographs</td></tr>
+        <tr><td class="mono">evaluate.py</td><td>Pose and structure accuracy against whatever reference a dataset ships — four formats auto-detected</td><td class="sub">scene_cache.npz + reference</td></tr>
+        <tr><td class="mono">compare_colmap.py</td><td>External baseline over every dataset, with intrinsics fixed where real calibration exists</td><td class="sub">scene_cache.npz + photographs</td></tr>
+        <tr><td class="mono">capture_geometry.py</td><td>Arc, angular step and baseline-to-depth ratio, measured from both solves</td><td class="sub">scene_cache.npz</td></tr>
+        <tr><td class="mono">ablate_pnp_guard.py</td><td>Measures the planar-degeneracy guard by running both implementations over shared tracks</td><td class="sub">a folder of photographs</td></tr>
+        <tr><td class="mono">verify_*.py &nbsp;×11</td><td>One check per build stage: Jacobian against finite differences, cheirality on a synthetic rig, two-view, incremental, hand-written bundle adjustment, MVS, evaluation, subject coverage</td><td class="sub">mostly Fountain-P11</td></tr>
+        <tr><td class="mono">export_*.py &nbsp;×4</td><td>Interactive viewers and mesh export for the web</td><td class="sub">scene_cache.npz</td></tr>
+        <tr><td class="mono">render_figures.py<br>make_report_figures.py</td><td>Offscreen renders of every cloud and mesh, and every chart and diagram in the report</td><td class="sub">scene_cache.npz</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <span>Classical Structure from Motion — system architecture.</span>
+  <span>Python 3.12 · OpenCV 5.0 · NumPy 2.5 · SciPy 1.18 · Open3D 0.19</span>
+</footer>
+
+</div>
+</body>
+</html>

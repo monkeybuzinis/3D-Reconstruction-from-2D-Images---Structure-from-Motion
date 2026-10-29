@@ -162,6 +162,30 @@ def dense_params(
     within = (depths >= min_depth) & (depths <= max_depth)
     n_core = int((within.sum(axis=0) >= min_views).sum())
 
+    # A reconstruction whose scale has collapsed -- every camera at the same
+    # point, every point at infinity -- produces a zero depth window and a zero
+    # voxel, which then fails deep inside Open3D with nothing pointing back at
+    # the real cause. That happens when the usable features all sit far enough
+    # away that a pure-rotation solution fits them (see PLAN.md), so say so.
+    # The two-view seed fixes the gauge with a UNIT baseline, so a healthy
+    # reconstruction has camera centres spanning on the order of 1. When they
+    # collapse to nearly a single point, bundle adjustment has found a
+    # pure-rotation solution: with no baseline, depth is unconstrained, points
+    # fly to infinity, and reprojection error stays low because a panorama
+    # explains the images just as well. Scale itself is arbitrary in SfM, so
+    # this is checked against the seed's gauge rather than an absolute size.
+    centres = np.stack([-R.T @ t for R, t in zip(Rs, ts)])
+    span = float(np.linalg.norm(centres - centres.mean(axis=0), axis=1).max())
+    if not np.isfinite(median_depth) or span < 1e-3 or max_depth <= min_depth:
+        raise ValueError(
+            f"Degenerate reconstruction: camera centres span only {span:.3g} against a "
+            f"unit seed baseline, median depth {median_depth:.3g}. The cameras have "
+            "effectively no baseline, so depth was never constrained -- a pure-rotation "
+            "solution. Usually means the subject itself gave too few stable features "
+            "(specular or textureless), leaving only distant background to match, where "
+            "parallax is negligible."
+        )
+
     focal_px = float(np.mean([K[0, 0] for K in Ks]))
     voxel = voxel_size_for(median_depth, focal_px, downscale, pixels_per_voxel)
 

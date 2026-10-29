@@ -65,7 +65,7 @@ def main() -> None:
     print(f"Points triangulated in front of both cameras: {len(scene.points)}")
     print(f"Reprojection error (px): median={np.median(errs):.4f}  mean={errs.mean():.4f}  max={errs.max():.4f}")
 
-    out_dir = ROOT / "outputs" / "two_view"
+    out_dir = ROOT / "outputs" / "_stages" / "two_view"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     xyz = scene.points_xyz()

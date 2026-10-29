@@ -47,7 +47,7 @@ def _smoke_test_tracks() -> None:
 def main() -> None:
     _smoke_test_tracks()
 
-    out_dir = ROOT / "outputs" / "week1"
+    out_dir = ROOT / "outputs" / "_stages" / "week1"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # include_reference_points=True pulls in the ~59k-point BA solution-pack

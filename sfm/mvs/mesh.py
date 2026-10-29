@@ -58,8 +58,10 @@ def keep_largest_cluster(pcd: o3d.geometry.PointCloud, eps: float, min_points: i
     keep_significant_clusters() is the better default -- see its docstring
     for why "largest" turned out to mean "34% of the building" on Rathaus.
     """
+    if len(pcd.points) == 0:
+        return pcd  # nothing survived cleaning; let the caller report why
     labels = np.asarray(pcd.cluster_dbscan(eps=eps, min_points=min_points))
-    if labels.max() < 0:
+    if labels.size == 0 or labels.max() < 0:
         return pcd  # nothing formed a cluster (all noise) -- return unchanged rather than emptying the cloud
     counts = np.bincount(labels[labels >= 0])
     largest = int(np.argmax(counts))
@@ -89,8 +91,10 @@ def keep_significant_clusters(
     real structural piece is a sizeable share of the main surface, while
     stereo streaks are small and stay below the bar.
     """
+    if len(pcd.points) == 0:
+        return pcd  # nothing survived cleaning; let the caller report why
     labels = np.asarray(pcd.cluster_dbscan(eps=eps, min_points=min_points))
-    if labels.max() < 0:
+    if labels.size == 0 or labels.max() < 0:
         return pcd  # all noise -- return unchanged rather than emptying the cloud
     counts = np.bincount(labels[labels >= 0])
     threshold = counts.max() * min_fraction

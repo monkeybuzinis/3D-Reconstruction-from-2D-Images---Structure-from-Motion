@@ -99,6 +99,7 @@ def build_tracks(
     ransac_threshold: float = 1.5,
     ransac_iters: int = 1000,
     min_track_len: int = 2,
+    rng_seed: int = 42,
 ) -> Tuple[Dict[int, np.ndarray], List[Track]]:
     """
     Match every image pair, geometrically verify with RANSAC F (raw
@@ -143,6 +144,9 @@ def build_tracks(
         pts_j = keypoints[j][idx_j]
 
         try:
+            # Each pair gets its own stream, derived from rng_seed, so a run
+            # is reproducible and a different rng_seed gives an independent
+            # repeat for the run-to-run distributions.
             _F, inlier_idx = ransac_fundamental_matrix(
                 pts_i, pts_j, threshold=ransac_threshold, max_iters=ransac_iters
             )

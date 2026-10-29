@@ -47,6 +47,7 @@ def seed_two_view(
     cam1: int,
     ransac_threshold: float = 1.5,
     ransac_iters: int = 3000,
+    rng_seed: int = 42,
 ) -> int:
     """
     Seed the Map from tracks visible in both cam0 and cam1 -- the same
@@ -68,7 +69,8 @@ def seed_two_view(
     pts0 = np.array([keypoints[cam0][t.observations[cam0]] for t in seed_tracks])
     pts1 = np.array([keypoints[cam1][t.observations[cam1]] for t in seed_tracks])
 
-    F, inlier_idx = ransac_fundamental_matrix(pts0, pts1, threshold=ransac_threshold, max_iters=ransac_iters)
+    F, inlier_idx = ransac_fundamental_matrix(pts0, pts1, threshold=ransac_threshold,
+                                              max_iters=ransac_iters, seed=rng_seed)
     E = essential_from_fundamental(F, K)
     candidates = decompose_essential(E)
     R, t, xyz = cheirality_check(K, candidates, pts0[inlier_idx], pts1[inlier_idx])
@@ -100,6 +102,9 @@ def register_camera_pnp(
     camera_id: int,
     ransac_threshold_px: float = 8.0,
     ransac_iters: int = 2000,
+    rng_seed: int = 0,
+    min_inliers: int = 30,
+    min_inlier_ratio: float = 0.25,
 ) -> int:
     """
     Register one new camera via RANSAC PnP against tracks that are already
@@ -130,8 +135,23 @@ def register_camera_pnp(
     pts3d = np.array([scene.points[pid].xyz for pid in point_ids])
 
     try:
-        R, t, inlier_idx = ransac_pnp(K, pts3d, pts2d, threshold_px=ransac_threshold_px, max_iters=ransac_iters)
+        R, t, inlier_idx = ransac_pnp(K, pts3d, pts2d, threshold_px=ransac_threshold_px,
+                                      max_iters=ransac_iters, seed=rng_seed)
     except RuntimeError:
+        return -1
+
+    # RANSAC always returns its best pose, however weak the support for it is.
+    # Accepting that unconditionally lets a camera join on a handful of
+    # inliers, and a wrongly placed camera is worse than a missing one: the
+    # next bundle adjustment fits the rest of the scene to it, and every
+    # camera resectioned afterwards is matched against the points it moved.
+    # On child-statue two cameras registered on inlier ratios of 0.06 and
+    # 0.12 while every correctly placed camera scored 0.44 or above.
+    # The thresholds are COLMAP's published mapper defaults
+    # (abs_pose_min_num_inliers, abs_pose_min_inlier_ratio) rather than
+    # values chosen against the datasets used here.
+    ratio = len(inlier_idx) / len(correspondences)
+    if len(inlier_idx) < min_inliers or ratio < min_inlier_ratio:
         return -1
 
     _add_camera_stub(scene, images, K, camera_id, R, t)
@@ -195,6 +215,143 @@ def triangulate_new_points(
     return added
 
 
+def filter_far_points(scene: Map, max_depth_ratio: float = 10.0) -> Map:
+    """
+    Drop points lying far beyond the scene the cameras were actually looking at.
+
+    A point triangulated from near-parallel rays has essentially unconstrained
+    depth: it reprojects well from anywhere along the ray, so the reprojection
+    filter keeps it, and it can land thousands of times further away than any
+    real structure. Photographing a small object indoors produces these in
+    bulk -- the subject is close while the walls and clutter behind it are far
+    enough to carry no usable parallax.
+
+    They are not harmless. The dense stage derives its depth window and voxel
+    size from the point cloud, and any viewer frames the whole of it, so a
+    handful of runaway points can hide the object completely. Measured on a
+    shoe captured indoors: the cloud spanned 98,551,799 units before this
+    filter and 647 after, with 83% of the points kept.
+
+    Depth is measured per point as the median over the cameras that see it in
+    front of them, and compared against the median over all points -- both
+    robust, since the whole problem here is a long tail.
+
+    Returns a new Map; `scene` is left untouched. The default ratio is
+    deliberately generous: the benchmark datasets reach 1.2-3.0x their median
+    depth, so this leaves them untouched. Object-centric captures benefit from
+    something tighter, around 2-3.
+    """
+    cams = list(scene.cameras.values())
+    point_depth: Dict[int, float] = {}
+    for pid, pt in scene.points.items():
+        depths = [float((c.R @ pt.xyz + c.t)[2]) for c in cams if c.has_pose()]
+        in_front = [d for d in depths if d > 0]
+        # No camera sees it in front: it cannot be real geometry.
+        point_depth[pid] = float(np.median(in_front)) if in_front else np.inf
+
+    finite = [d for d in point_depth.values() if np.isfinite(d)]
+    if not finite:
+        return scene
+    threshold = float(np.median(finite)) * max_depth_ratio
+
+    keep = {pid for pid, d in point_depth.items() if d <= threshold}
+    if len(keep) == len(scene.points):
+        return scene
+
+    cleaned = Map()
+    for cam in scene.cameras.values():
+        cleaned.add_camera(
+            Camera(id=cam.id, K=cam.K.copy(), image_name=cam.image_name, width=cam.width,
+                   height=cam.height, R=None if cam.R is None else cam.R.copy(),
+                   t=None if cam.t is None else cam.t.copy())
+        )
+    for pid in keep:
+        pt = scene.points[pid]
+        cleaned.add_point(Point3D(id=pid, xyz=pt.xyz.copy(),
+                                  color=None if pt.color is None else pt.color.copy()))
+    for obs in scene.observations:
+        if obs.point_id in keep:
+            cleaned.add_observation(
+                Observation(camera_id=obs.camera_id, point_id=obs.point_id, uv=obs.uv.copy())
+            )
+    return cleaned
+
+
+def filter_centred_points(
+    scene: Map,
+    centre_frac: float = 0.28,
+    min_views: int = 5,
+    min_fraction: float = 0.7,
+) -> Map:
+    """
+    Keep only the structure the photographer kept in frame: the subject.
+
+    When someone walks around an object they hold it near the centre of every
+    shot while the surroundings drift through the edges. That framing is a
+    reliable signal about which points are the subject, and it survives cases
+    where depth cannot separate them -- photographing a boot in a garden puts
+    the boot and the fence behind it at nearly the same distance, so no depth
+    threshold can tell them apart, but only the boot stays centred.
+
+    A point is kept when it projects inside the central `centre_frac` of the
+    frame (as a fraction of width/height from the centre) in at least
+    `min_fraction` of the cameras that see it at all, having been seen by at
+    least `min_views`. Measured on a boot shot in a garden: 10,033 points
+    including fence and ground reduced to 3,975 forming just the boot.
+
+    This is the automatic equivalent of the reconstruction bounding box that
+    photogrammetry packages ask the user to drag around the subject by hand.
+    Returns a new Map; `scene` is left untouched.
+    """
+    cams = [c for c in scene.cameras.values() if c.has_pose()]
+    if not cams:
+        return scene
+
+    pids = sorted(scene.points)
+    if not pids:
+        return scene
+    xyz = np.stack([scene.points[pid].xyz for pid in pids])
+    seen = np.zeros(len(pids), dtype=int)
+    centred = np.zeros(len(pids), dtype=int)
+
+    for cam in cams:
+        p_cam = (cam.R @ xyz.T + cam.t.reshape(3, 1)).T
+        in_front = p_cam[:, 2] > 1e-9
+        z = np.where(in_front, p_cam[:, 2], 1.0)
+        uv = (cam.K @ (p_cam / z[:, None]).T).T[:, :2]
+        in_frame = in_front & (uv[:, 0] >= 0) & (uv[:, 0] < cam.width) & (uv[:, 1] >= 0) & (uv[:, 1] < cam.height)
+        inner = (
+            in_frame
+            & (np.abs(uv[:, 0] - cam.width / 2) < cam.width * centre_frac)
+            & (np.abs(uv[:, 1] - cam.height / 2) < cam.height * centre_frac)
+        )
+        seen += in_frame
+        centred += inner
+
+    frac = np.divide(centred, np.maximum(seen, 1))
+    keep = {pid for pid, s, f in zip(pids, seen, frac) if s >= min_views and f >= min_fraction}
+    if not keep or len(keep) == len(scene.points):
+        return scene
+
+    cleaned = Map()
+    for cam in scene.cameras.values():
+        cleaned.add_camera(
+            Camera(id=cam.id, K=cam.K.copy(), image_name=cam.image_name, width=cam.width,
+                   height=cam.height, R=None if cam.R is None else cam.R.copy(),
+                   t=None if cam.t is None else cam.t.copy())
+        )
+    for pid in keep:
+        pt = scene.points[pid]
+        cleaned.add_point(Point3D(id=pid, xyz=pt.xyz.copy(),
+                                  color=None if pt.color is None else pt.color.copy()))
+    for obs in scene.observations:
+        if obs.point_id in keep:
+            cleaned.add_observation(
+                Observation(camera_id=obs.camera_id, point_id=obs.point_id, uv=obs.uv.copy())
+            )
+    return cleaned
+
+
 def run_incremental_sfm(
     images: Dict[int, np.ndarray],
     K: np.ndarray,
@@ -203,6 +360,9 @@ def run_incremental_sfm(
     seed: Tuple[int, int] = (0, 1),
     ba_max_nfev: int = 50,
     bundle_adjust_fn: Callable[..., dict] = scipy_bundle_adjust,
+    rng_seed: int = 0,
+    min_inliers: int = 30,
+    min_inlier_ratio: float = 0.25,
 ) -> Tuple[Map, List[Tuple[int, int, int]]]:
     """
     Full incremental pipeline: seed from `seed`, then repeatedly register the
@@ -232,20 +392,26 @@ def run_incremental_sfm(
     """
     # scipy's optimizer takes its iteration cap as max_nfev; the hand-written
     # one takes it as max_iters. Figure out which once, up front.
-    iter_param = "max_iters" if "max_iters" in inspect.signature(bundle_adjust_fn).parameters else "max_nfev"
+    ba_params = inspect.signature(bundle_adjust_fn).parameters
+    iter_param = "max_iters" if "max_iters" in ba_params else "max_nfev"
+    # Optimizers that understand the scale gauge get told about the seed pair;
+    # the scipy-backed one does not take it, so it is omitted there.
+    gauge_kw = {"gauge_pair": tuple(seed)} if "gauge_pair" in ba_params else {}
 
     def run_ba(s: Map) -> None:
         # seed[0] stays fixed at the world origin for every BA call: this is
         # the "gauge fix" that removes the 6-DOF (rotation+translation)
         # ambiguity BA would otherwise have (reprojection error is unchanged
         # by rigidly transforming the whole scene, so without a fixed
-        # reference frame the optimizer has nothing to anchor to).
-        bundle_adjust_fn(s, fixed_camera_ids=(seed[0],), **{iter_param: ba_max_nfev})
+        # reference frame the optimizer has nothing to anchor to). Scale is
+        # the 7th degree of freedom and a fixed camera does not pin it, so
+        # gauge_pair holds the seed baseline at one unit as well.
+        bundle_adjust_fn(s, fixed_camera_ids=(seed[0],), **gauge_kw, **{iter_param: ba_max_nfev})
 
     scene = Map()
     tracks_by_id = {t.id: t for t in tracks}
 
-    seed_two_view(scene, images, K, keypoints, tracks, seed[0], seed[1])
+    seed_two_view(scene, images, K, keypoints, tracks, seed[0], seed[1], rng_seed=rng_seed)
     triangulate_new_points(scene, keypoints, tracks_by_id)
     run_ba(scene)
 
@@ -269,7 +435,9 @@ def run_incremental_sfm(
         if best_cid is None or best_count < 6:
             break  # nothing left has enough correspondences for PnP
 
-        n_inliers = register_camera_pnp(scene, images, K, keypoints, tracks_by_id, best_cid)
+        n_inliers = register_camera_pnp(scene, images, K, keypoints, tracks_by_id, best_cid,
+                                        rng_seed=rng_seed, min_inliers=min_inliers,
+                                        min_inlier_ratio=min_inlier_ratio)
         if n_inliers < 0:
             # Not a permanent failure: with many images it's normal for a
             # camera's correspondences to be too weak/degenerate the first

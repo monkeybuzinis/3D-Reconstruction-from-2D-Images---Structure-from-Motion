@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>:root{color-scheme:dark}body{margin:0}</style>
+</head>
+<body>
+<title>__TITLE__</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg-void: #0a0d12;
+    --bg-panel: #12161df2;
+    --bg-panel-solid: #12161d;
+    --border: #262d38;
+    --border-soft: #1c222b;
+    --text-primary: #e8ecf1;
+    --text-secondary: #8993a4;
+    --text-tertiary: #5b6472;
+    --accent: #5ec8d8;
+    --accent-warm: #d99a5e;
+    --focus: #7dd8e6;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg-void);
+    color: var(--text-primary);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    overflow: hidden;
+  }
+
+  .app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.9rem 1.25rem;
+    background: var(--bg-panel-solid);
+    border-bottom: 1px solid var(--border);
+    z-index: 5;
+  }
+
+  header h1 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  header .subtitle {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+  }
+
+  header .subtitle strong {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .viewport-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  canvas.dragging { cursor: grabbing; }
+
+  .panel {
+    position: absolute;
+    background: var(--bg-panel);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.85rem 1rem;
+  }
+
+  .stats {
+    top: 1rem;
+    left: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 200px;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1.25rem;
+    font-size: 0.78rem;
+  }
+
+  .stat-label {
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
+  }
+
+  .stat-value {
+    font-family: "IBM Plex Mono", monospace;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+    font-size: 0.82rem;
+  }
+
+  .stat-value.accent { color: var(--accent); }
+
+  .divider {
+    height: 1px;
+    background: var(--border-soft);
+    margin: 0.1rem 0;
+  }
+
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+  }
+
+  .swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex: 0 0 auto;
+  }
+
+  .controls {
+    bottom: 1rem;
+    left: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .controls button {
+    font-family: inherit;
+    font-size: 0.75rem;
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.35rem 0.65rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .controls button:hover { border-color: var(--accent); color: var(--accent); }
+  .controls button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .toggle input { accent-color: var(--accent-warm); }
+
+  .hint {
+    top: 1rem;
+    right: 1rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: opacity 0.6s ease;
+  }
+
+  .hint kbd {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.68rem;
+    background: var(--border-soft);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.1rem 0.35rem;
+    color: var(--text-primary);
+  }
+
+  .hint.faded { opacity: 0; pointer-events: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hint { transition: none; }
+  }
+
+  .mode-switch {
+    margin-left: auto;
+    display: flex;
+    gap: 0.25rem;
+    background: var(--border-soft);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.2rem;
+    flex: 0 0 auto;
+  }
+
+  .mode-switch button {
+    font-family: inherit;
+    font-size: 0.78rem;
+    background: transparent;
+    color: var(--text-secondary);
+    border: none;
+    border-radius: 3px;
+    padding: 0.35rem 0.7rem;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .mode-switch button.active {
+    background: var(--accent);
+    color: #0a0d12;
+    font-weight: 500;
+  }
+
+  .mode-switch button:not(.active):hover { color: var(--text-primary); }
+  .mode-switch button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+</style>
+
+<div class="app">
+  <header>
+    <h1>__TITLE__</h1>
+    <span class="subtitle" id="subtitle">__SUBTITLE__</span>
+    <div class="mode-switch">
+      <button id="mode-sparse" class="active">Sparse (SfM)</button>
+      <button id="mode-dense">Dense mesh (MVS)</button>
+    </div>
+  </header>
+
+  <div class="viewport-wrap">
+    <canvas id="canvas"></canvas>
+
+    <div class="panel stats">
+      <div class="stat-row"><span class="stat-label" id="stat-label-1">points</span><span class="stat-value" id="stat-1">—</span></div>
+      <div class="stat-row"><span class="stat-label" id="stat-label-2">cameras</span><span class="stat-value" id="stat-2">—</span></div>
+      <div class="divider"></div>
+      <div class="stat-row" id="stat-row-error"><span class="stat-label">median reprojection error</span><span class="stat-value accent">__ERROR__</span></div>
+      <div class="divider" id="divider-error"></div>
+      <div class="legend" id="legend-text">point color sampled directly from the source photos</div>
+    </div>
+
+    <div class="panel hint" id="hint">
+      <span>drag to rotate</span><kbd>·</kbd><span>scroll to zoom</span>
+    </div>
+
+    <div class="panel controls">
+      <button id="reset-btn">Reset view</button>
+      <label class="toggle"><input type="checkbox" id="camera-toggle" checked /> show cameras</label>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA = __POINTS_DATA__;
+const MESH_DATA = __MESH_DATA__;
+
+(function () {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const hint = document.getElementById('hint');
+  const resetBtn = document.getElementById('reset-btn');
+  const cameraToggle = document.getElementById('camera-toggle');
+  const modeSparseBtn = document.getElementById('mode-sparse');
+  const modeDenseBtn = document.getElementById('mode-dense');
+  const subtitleEl = document.getElementById('subtitle');
+  const statLabel1 = document.getElementById('stat-label-1');
+  const statLabel2 = document.getElementById('stat-label-2');
+  const stat1 = document.getElementById('stat-1');
+  const stat2 = document.getElementById('stat-2');
+  const statRowError = document.getElementById('stat-row-error');
+  const dividerError = document.getElementById('divider-error');
+  const legendText = document.getElementById('legend-text');
+
+  const rawPoints = DATA.points;
+  const rawColors = DATA.colors; // uint8 RGB, sampled from the original photos at each point's pixel
+  const nPoints = DATA.n_points;
+  stat1.textContent = nPoints.toLocaleString();
+  stat2.textContent = DATA.cameras.length;
+
+  // This project's world frame is camera 0's own coordinate frame (fixed to
+  // identity as the reconstruction's gauge/anchor -- see sfm/map.py). Camera
+  // frames follow OpenCV's pinhole convention, where +Y points DOWN the
+  // image, not up. A standard 3D viewer assumes +Y is up, so left as-is the
+  // whole scene renders upside down no matter how you drag-rotate (rotation
+  // can't fix an axis that's inverted to begin with). Negating every Y
+  // coordinate on the way in -- points, camera centers, camera forward
+  // vectors -- is the fix: it re-expresses the same real geometry in a
+  // Y-up frame instead of Y-down.
+  const flipY = (v) => -v;
+
+  // --- Center + robust-scale the cloud ---------------------------------
+  let cx0 = 0, cy0 = 0, cz0 = 0;
+  for (let i = 0; i < nPoints; i++) {
+    cx0 += rawPoints[i*3]; cy0 += flipY(rawPoints[i*3+1]); cz0 += rawPoints[i*3+2];
+  }
+  cx0 /= nPoints; cy0 /= nPoints; cz0 /= nPoints;
+
+  const pts = new Float32Array(nPoints * 3);
+  const colors = new Uint8Array(rawColors);
+  const dists = new Float32Array(nPoints);
+  for (let i = 0; i < nPoints; i++) {
+    const x = rawPoints[i*3] - cx0, y = flipY(rawPoints[i*3+1]) - cy0, z = rawPoints[i*3+2] - cz0;
+    pts[i*3] = x; pts[i*3+1] = y; pts[i*3+2] = z;
+    dists[i] = Math.sqrt(x*x + y*y + z*z);
+  }
+  const sortedDists = Array.from(dists).sort((a, b) => a - b);
+  const sparseRadius = sortedDists[Math.floor(sortedDists.length * 0.9)] || 1;
+
+  const cameras = DATA.cameras.map(c => ({
+    center: [c.center[0] - cx0, flipY(c.center[1]) - cy0, c.center[2] - cz0],
+    forward: [c.forward[0], flipY(c.forward[1]), c.forward[2]],
+    id: c.id,
+  }));
+
+  // --- Dense mesh (real Poisson-reconstructed triangles, from sfm/mvs) ---
+  // Same world coordinate frame as the sparse cloud (both were computed
+  // from the same recovered camera poses) but a different centroid/extent,
+  // since MVS covers more of the surface than the sparse feature tracks do.
+  const meshVertsRaw = MESH_DATA.verts;
+  const meshColorsArr = new Uint8Array(MESH_DATA.colors);
+  const meshFaces = new Int32Array(MESH_DATA.faces);
+  const nMeshVerts = MESH_DATA.n_verts;
+
+  let mcx = 0, mcy = 0, mcz = 0;
+  for (let i = 0; i < nMeshVerts; i++) {
+    mcx += meshVertsRaw[i*3]; mcy += flipY(meshVertsRaw[i*3+1]); mcz += meshVertsRaw[i*3+2];
+  }
+  mcx /= nMeshVerts; mcy /= nMeshVerts; mcz /= nMeshVerts;
+
+  const meshVertsC = new Float32Array(nMeshVerts * 3);
+  const meshDists = new Float32Array(nMeshVerts);
+  for (let i = 0; i < nMeshVerts; i++) {
+    const x = meshVertsRaw[i*3] - mcx, y = flipY(meshVertsRaw[i*3+1]) - mcy, z = meshVertsRaw[i*3+2] - mcz;
+    meshVertsC[i*3] = x; meshVertsC[i*3+1] = y; meshVertsC[i*3+2] = z;
+    meshDists[i] = Math.sqrt(x*x + y*y + z*z);
+  }
+  const sortedMeshDists = Array.from(meshDists).sort((a, b) => a - b);
+  const denseRadius = sortedMeshDists[Math.floor(sortedMeshDists.length * 0.9)] || 1;
+
+  const denseCameras = DATA.cameras.map(c => ({
+    center: [c.center[0] - mcx, flipY(c.center[1]) - mcy, c.center[2] - mcz],
+    forward: [c.forward[0], flipY(c.forward[1]), c.forward[2]],
+    id: c.id,
+  }));
+
+  let mode = 'sparse';
+  const radius = () => (mode === 'sparse' ? sparseRadius : denseRadius);
+  const distByMode = { sparse: sparseRadius * 2.6, dense: denseRadius * 2.6 };
+  const initialDist = { sparse: distByMode.sparse, dense: distByMode.dense };
+
+
+  // --- Orbit camera state ------------------------------------------------
+  const initialYaw = 0.7, initialPitch = 0.35;
+  let yaw = initialYaw, pitch = initialPitch;
+  let dist = distByMode.sparse;
+  let dragging = false, lastX = 0, lastY = 0;
+  let hintFaded = false;
+
+  function setMode(next) {
+    if (next === mode) return;
+    distByMode[mode] = dist; // remember where we left off in the mode we're leaving
+    mode = next;
+    dist = distByMode[mode];
+
+    modeSparseBtn.classList.toggle('active', mode === 'sparse');
+    modeDenseBtn.classList.toggle('active', mode === 'dense');
+    statRowError.style.display = mode === 'sparse' ? '' : 'none';
+    dividerError.style.display = mode === 'sparse' ? '' : 'none';
+
+    if (mode === 'sparse') {
+      subtitleEl.innerHTML = 'recovered from <strong>11 photographs</strong> via classical Structure-from-Motion — no generative AI, every point measured';
+      statLabel1.textContent = 'points';
+      statLabel2.textContent = 'cameras';
+      stat1.textContent = nPoints.toLocaleString();
+      stat2.textContent = DATA.cameras.length;
+      legendText.textContent = 'point color sampled directly from the source photos';
+    } else {
+      subtitleEl.innerHTML = 'dense stereo (<strong>MVS</strong>) fused across camera pairs, Poisson-meshed — a real, gap-filled surface, not a sparse feature grid';
+      statLabel1.textContent = 'vertices';
+      statLabel2.textContent = 'triangles';
+      stat1.textContent = nMeshVerts.toLocaleString();
+      stat2.textContent = (meshFaces.length / 3).toLocaleString();
+      legendText.textContent = 'mesh color sampled directly from the source photos, via dense stereo';
+    }
+  }
+
+  function fadeHint() {
+    if (!hintFaded) { hint.classList.add('faded'); hintFaded = true; }
+  }
+
+  function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = rect.height + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function depthColorRGB(t) {
+    // 3-stop gradient: indigo (near-camera background) -> cyan accent (mid) -> warm amber (far)
+    t = Math.max(0, Math.min(1, t));
+    const stops = [
+      [58, 77, 143],
+      [94, 200, 216],
+      [217, 154, 94],
+    ];
+    const seg = t < 0.5 ? 0 : 1;
+    const localT = t < 0.5 ? t / 0.5 : (t - 0.5) / 0.5;
+    const a = stops[seg], b = stops[seg + 1];
+    return [lerp(a[0],b[0],localT)|0, lerp(a[1],b[1],localT)|0, lerp(a[2],b[2],localT)|0];
+  }
+  function depthColor(t) {
+    const [r, g, b] = depthColorRGB(t);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function render() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    ctx.fillStyle = '#0a0d12';
+    ctx.fillRect(0, 0, w, h);
+
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const eye = [dist * cp * sy, dist * sp, dist * cp * cy];
+
+    // look-at basis (target is the origin, i.e. the cloud's centroid)
+    let fz = [-eye[0], -eye[1], -eye[2]];
+    let flen = Math.hypot(fz[0], fz[1], fz[2]) || 1;
+    fz = [fz[0]/flen, fz[1]/flen, fz[2]/flen];
+    const upGuess = [0, 1, 0];
+    let rx = [
+      fz[1]*upGuess[2] - fz[2]*upGuess[1],
+      fz[2]*upGuess[0] - fz[0]*upGuess[2],
+      fz[0]*upGuess[1] - fz[1]*upGuess[0],
+    ];
+    let rlen = Math.hypot(rx[0], rx[1], rx[2]) || 1;
+    rx = [rx[0]/rlen, rx[1]/rlen, rx[2]/rlen];
+    const ry = [
+      rx[1]*fz[2] - rx[2]*fz[1],
+      rx[2]*fz[0] - rx[0]*fz[2],
+      rx[0]*fz[1] - rx[1]*fz[0],
+    ];
+
+    const focal = Math.min(w, h) * 0.9;
+    const cxScreen = w / 2, cyScreen = h / 2;
+
+    function project(px, py, pz) {
+      const relx = px - eye[0], rely = py - eye[1], relz = pz - eye[2];
+      const vx = relx*rx[0] + rely*rx[1] + relz*rx[2];
+      const vy = relx*ry[0] + rely*ry[1] + relz*ry[2];
+      const vz = relx*fz[0] + rely*fz[1] + relz*fz[2];
+      if (vz <= 0.001) return null;
+      return {
+        x: cxScreen + (vx / vz) * focal,
+        y: cyScreen - (vy / vz) * focal,
+        depth: vz,
+      };
+    }
+
+    function drawCameras(camList) {
+      if (!cameraToggle.checked) return;
+      const camLen = radius() * 0.12;
+      for (const cam of camList) {
+        const c = project(cam.center[0], cam.center[1], cam.center[2]);
+        if (!c) continue;
+        const tip = project(
+          cam.center[0] + cam.forward[0] * camLen,
+          cam.center[1] + cam.forward[1] * camLen,
+          cam.center[2] + cam.forward[2] * camLen
+        );
+        ctx.strokeStyle = '#d99a5e';
+        ctx.lineWidth = 1.5;
+        if (tip) {
+          ctx.beginPath();
+          ctx.moveTo(c.x, c.y);
+          ctx.lineTo(tip.x, tip.y);
+          ctx.stroke();
+        }
+        ctx.fillStyle = '#d99a5e';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#8993a4';
+        ctx.font = '10px "IBM Plex Mono", monospace';
+        ctx.fillText(cam.id, c.x + 6, c.y - 6);
+      }
+    }
+
+    if (mode === 'sparse') {
+      // Project all points, compute view-depth range (used only to slightly
+      // shrink far points for a depth cue -- color itself comes from the
+      // original photos, not from depth).
+      const projected = [];
+      let minD = Infinity, maxD = -Infinity;
+      for (let i = 0; i < nPoints; i++) {
+        const p = project(pts[i*3], pts[i*3+1], pts[i*3+2]);
+        if (!p) continue;
+        p.idx = i;
+        projected.push(p);
+        if (p.depth < minD) minD = p.depth;
+        if (p.depth > maxD) maxD = p.depth;
+      }
+      projected.sort((a, b) => b.depth - a.depth); // far to near (painter's algorithm)
+      const range = Math.max(maxD - minD, 1e-6);
+
+      for (const p of projected) {
+        const t = (p.depth - minD) / range;
+        const i = p.idx;
+        ctx.fillStyle = `rgb(${colors[i*3]},${colors[i*3+1]},${colors[i*3+2]})`;
+        const size = lerp(2.6, 1.3, t);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      drawCameras(cameras);
+    } else {
+      // Dense mode: a real mesh (Poisson-reconstructed triangles from
+      // sfm/mvs), not an approximation -- every face has actual geometric
+      // support from the fused dense stereo cloud.
+      const nFaces = meshFaces.length / 3;
+      const faceShapes = [];
+      for (let f = 0; f < nFaces; f++) {
+        const a = meshFaces[f*3], b = meshFaces[f*3+1], c = meshFaces[f*3+2];
+        const p0 = project(meshVertsC[a*3], meshVertsC[a*3+1], meshVertsC[a*3+2]);
+        const p1 = project(meshVertsC[b*3], meshVertsC[b*3+1], meshVertsC[b*3+2]);
+        const p2 = project(meshVertsC[c*3], meshVertsC[c*3+1], meshVertsC[c*3+2]);
+        if (!p0 || !p1 || !p2) continue;
+        const r = (meshColorsArr[a*3] + meshColorsArr[b*3] + meshColorsArr[c*3]) / 3;
+        const g = (meshColorsArr[a*3+1] + meshColorsArr[b*3+1] + meshColorsArr[c*3+1]) / 3;
+        const bl = (meshColorsArr[a*3+2] + meshColorsArr[b*3+2] + meshColorsArr[c*3+2]) / 3;
+        faceShapes.push({ p0, p1, p2, r, g, b: bl, depth: (p0.depth + p1.depth + p2.depth) / 3 });
+      }
+      faceShapes.sort((x, y) => y.depth - x.depth); // far to near
+      for (const tri of faceShapes) {
+        ctx.beginPath();
+        ctx.moveTo(tri.p0.x, tri.p0.y);
+        ctx.lineTo(tri.p1.x, tri.p1.y);
+        ctx.lineTo(tri.p2.x, tri.p2.y);
+        ctx.closePath();
+        ctx.fillStyle = `rgb(${tri.r|0},${tri.g|0},${tri.b|0})`;
+        ctx.fill();
+      }
+
+      drawCameras(denseCameras);
+    }
+
+    requestAnimationFrame(render);
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    lastX = e.clientX; lastY = e.clientY;
+    canvas.classList.add('dragging');
+    canvas.setPointerCapture(e.pointerId);
+    fadeHint();
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    yaw -= dx * 0.006;
+    pitch = Math.max(-1.5, Math.min(1.5, pitch + dy * 0.006));
+  });
+  canvas.addEventListener('pointerup', (e) => {
+    dragging = false;
+    canvas.classList.remove('dragging');
+    canvas.releasePointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    fadeHint();
+    dist *= Math.exp(e.deltaY * 0.001);
+    dist = Math.max(radius() * 0.3, Math.min(radius() * 8, dist));
+  }, { passive: false });
+
+  resetBtn.addEventListener('click', () => {
+    yaw = initialYaw; pitch = initialPitch; dist = initialDist[mode];
+  });
+
+  modeSparseBtn.addEventListener('click', () => setMode('sparse'));
+  modeDenseBtn.addEventListener('click', () => setMode('dense'));
+
+  requestAnimationFrame(render);
+})();
+</script>
+</body>
+</html>

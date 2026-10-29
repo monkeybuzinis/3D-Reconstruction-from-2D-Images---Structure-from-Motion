@@ -32,13 +32,30 @@ def load_image_folder(folder: Path) -> Tuple[Dict[int, np.ndarray], list]:
     if len(paths) < 2:
         raise ValueError(f"Need >= 2 images in {folder}, found {len(paths)}")
 
-    images: Dict[int, np.ndarray] = {}
-    for i, path in enumerate(paths):
+    decoded = []
+    for path in paths:
         img = cv2.imread(str(path), cv2.IMREAD_COLOR)
         if img is None:
             raise RuntimeError(f"OpenCV failed to read {path}")
-        images[i] = img
-    return images, paths
+        decoded.append((path, img))
+
+    # Every stage downstream shares one intrinsic matrix, which only makes
+    # sense if the photographs share one image size. Benchmark folders ship
+    # other images next to the photos -- Fountain-P11 has a 243x243
+    # vertex_colors.ppm -- and an odd one out would otherwise be numbered as
+    # a camera and silently given the wrong K.
+    shapes = [img.shape[:2] for _, img in decoded]
+    majority = max(set(shapes), key=shapes.count)
+    kept = [(path, img) for (path, img), s in zip(decoded, shapes) if s == majority]
+    if len(kept) < len(decoded):
+        dropped = [path.name for (path, _), s in zip(decoded, shapes) if s != majority]
+        print(f"Ignoring {len(dropped)} file(s) whose size differs from the other "
+              f"{len(kept)} ({majority[1]}x{majority[0]}): {', '.join(dropped)}")
+    if len(kept) < 2:
+        raise ValueError(f"Need >= 2 images of a common size in {folder}, found {len(kept)}")
+
+    images: Dict[int, np.ndarray] = {i: img for i, (_, img) in enumerate(kept)}
+    return images, [path for path, _ in kept]
 
 
 def load_scene(
@@ -51,7 +68,8 @@ def load_scene(
     Load images + determine a shared K, all in one call.
 
     K is resolved in order of trust:
-      1. An explicit focal_mm + sensor_width_mm override.
+      1. An explicit focal_mm + sensor_width_mm override, both measured
+         across the same axis as the image's width.
       2. A Strecha-style `<image>.camera` sidecar file, if the dataset ships
          one (e.g. Fountain-P11, Rathaus) -- this is real calibration, not
          a guess, so it always wins over EXIF when present.
@@ -62,6 +80,10 @@ def load_scene(
     h, w = images[0].shape[:2]
 
     if focal_mm is not None and sensor_width_mm is not None:
+        # An explicit focal length is a real measurement of the lens, so it
+        # pairs with the real sensor width along the image's own width -- no
+        # diagonal convention is involved. Width here means the sensor
+        # dimension that spans the image's w pixels.
         focal_px = (focal_mm / sensor_width_mm) * w
         return images, estimate_intrinsics(paths[0], w, h, override_focal_px=focal_px)
 

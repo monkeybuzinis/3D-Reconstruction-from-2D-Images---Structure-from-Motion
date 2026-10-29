@@ -41,7 +41,7 @@ def main() -> None:
     point_ids_sorted = sorted(scene.points)
     colors = np.stack([scene.points[pid].color for pid in point_ids_sorted]).astype(np.uint8)
 
-    ply_path = ROOT / "outputs" / "hand_ba" / "fountain_hand_ba_colored.ply"
+    ply_path = ROOT / "outputs" / "_stages" / "hand_ba" / "fountain_hand_ba_colored.ply"
     write_xyzrgb_ply(ply_path, points, colors)
     print(f"Wrote colored PLY -> {ply_path}")
 
@@ -64,7 +64,7 @@ def main() -> None:
         "n_points": int(points.shape[0]),
         "cameras": cameras,
     }
-    out_path = ROOT / "outputs" / "viewer_data.json"
+    out_path = ROOT / "evaluation" / "viewer" / "viewer_data.json"
     out_path.write_text(json.dumps(out))
     print(f"Wrote {points.shape[0]} points + {len(cameras)} cameras -> {out_path}")
     print(f"File size: {out_path.stat().st_size / 1024:.0f} KB")

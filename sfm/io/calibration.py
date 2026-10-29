@@ -16,7 +16,14 @@ from typing import Optional
 import numpy as np
 from PIL import ExifTags, Image
 
-_FULL_FRAME_WIDTH_MM = 36.0  # the reference width FocalLengthIn35mmFilm is defined relative to
+# A 35 mm-equivalent focal length states what lens on a 36 x 24 mm frame
+# would give the same field of view. That equivalence is conventionally
+# defined over the DIAGONAL -- it is how crop factor is defined -- not over
+# either edge, because only the diagonal is independent of aspect ratio and
+# of which way the camera was held. Pairing it with an edge is right only
+# when the sensor has the same 3:2 shape as 35 mm film, which phone sensors
+# (4:3) do not. See _focal_px_from_exif.
+_FULL_FRAME_DIAGONAL_MM = float(np.hypot(36.0, 24.0))   # 43.267 mm
 
 
 def _read_exif_ifd(path: Path) -> dict:
@@ -32,7 +39,7 @@ def _read_exif_ifd(path: Path) -> dict:
     return tags
 
 
-def _focal_px_from_exif(path: Path, width_px: int) -> Optional[float]:
+def _focal_px_from_exif(path: Path, width_px: int, height_px: int) -> Optional[float]:
     """
     Try, in order of reliability:
       1. FocalLengthIn35mmFilm -- doesn't need the camera's actual sensor
@@ -45,7 +52,14 @@ def _focal_px_from_exif(path: Path, width_px: int) -> Optional[float]:
 
     focal_35mm = tags.get("FocalLengthIn35mmFilm")
     if focal_35mm:
-        return (float(focal_35mm) / _FULL_FRAME_WIDTH_MM) * width_px
+        # Scale by the image diagonal against the 35 mm frame diagonal. Two
+        # earlier versions of this line were wrong in different ways: using
+        # width alone shortened the focal length by the aspect ratio on every
+        # portrait photo (1536/2048 = 0.75), and using the long edge still
+        # left a systematic 5% because a 4:3 sensor is not the shape of a
+        # 3:2 frame. Neither error is detectable downstream -- the solve
+        # converges and still reports a good residual.
+        return (float(focal_35mm) / _FULL_FRAME_DIAGONAL_MM) * float(np.hypot(width_px, height_px))
 
     focal_mm = tags.get("FocalLength")
     plane_res = tags.get("FocalPlaneXResolution")
@@ -55,6 +69,9 @@ def _focal_px_from_exif(path: Path, width_px: int) -> Optional[float]:
         plane_res = float(plane_res)
         unit_mm = {2: 25.4, 3: 10.0}.get(int(plane_unit))
         if unit_mm and plane_res > 0:
+            # width_px cancels out of this branch -- the result reduces to
+            # focal_mm * plane_res / unit_mm -- so it is already independent
+            # of which way the camera was held.
             sensor_width_mm = width_px / (plane_res / unit_mm)
             if sensor_width_mm > 0:
                 return (focal_mm / sensor_width_mm) * width_px
@@ -75,16 +92,24 @@ def estimate_intrinsics(
     for a single capture session).
 
     Falls back to assuming a `fallback_fov_deg` horizontal field of view
-    (55 degrees is a reasonable default for a typical phone's main camera)
-    if EXIF has neither FocalLengthIn35mmFilm nor a usable
-    FocalLength+FocalPlaneResolution combination -- common on
+    across the image's own width (55 degrees is a reasonable default for a
+    typical phone's main camera held in portrait) if EXIF has neither FocalLengthIn35mmFilm nor a
+    usable FocalLength+FocalPlaneResolution combination -- common on
     screenshots, edited photos, or cameras that strip EXIF.
     """
     if override_focal_px is not None:
         focal_px = override_focal_px
     else:
-        focal_px = _focal_px_from_exif(image_path, width)
+        focal_px = _focal_px_from_exif(image_path, width, height)
         if focal_px is None:
+            # Unlike the 35 mm-equivalent tag above, this constant is not a
+            # convention to be interpreted -- it is a guess about one angle,
+            # and it is calibrated across the image's own width. The three
+            # datasets here that carry no EXIF bear that out: COLMAP, which
+            # refines the focal length from the photographs, implies a
+            # horizontal field of view of 56.7, 57.6 and 53.2 degrees on them.
+            # Reading the same 55 degrees across the diagonal instead would
+            # overestimate the focal length by about 70%.
             focal_px = (width / 2) / np.tan(np.radians(fallback_fov_deg) / 2)
 
     return np.array(

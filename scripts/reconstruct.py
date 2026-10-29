@@ -20,6 +20,9 @@ Usage:
 
 from pathlib import Path
 import argparse
+import json
+import platform
+import subprocess
 import sys
 import time
 
@@ -33,7 +36,43 @@ from sfm.features.tracks import build_tracks
 from sfm.io.colorize import colorize_points
 from sfm.io.generic import load_scene
 from sfm.io.ply import write_xyzrgb_ply
-from sfm.recon.incremental import filter_outlier_observations, run_incremental_sfm
+from sfm.recon.incremental import (filter_centred_points, filter_far_points,
+                                   filter_outlier_observations, run_incremental_sfm)
+
+
+def _git_commit() -> str:
+    """Short commit of the working tree, with a marker if it is dirty."""
+    try:
+        root = str(ROOT)
+        sha = subprocess.run(["git", "-C", root, "rev-parse", "--short", "HEAD"],
+                             capture_output=True, text=True, timeout=10)
+        if sha.returncode != 0:
+            return "unknown"
+        dirty = subprocess.run(["git", "-C", root, "status", "--porcelain"],
+                               capture_output=True, text=True, timeout=10)
+        return sha.stdout.strip() + ("-dirty" if dirty.stdout.strip() else "")
+    except Exception:
+        return "unknown"
+
+
+def _environment() -> dict:
+    """Versions of everything whose behaviour could change a result."""
+    import cv2
+    import scipy
+    env = {
+        "python": sys.version.split()[0],
+        "platform": platform.platform(),
+        "processor": platform.processor() or platform.machine(),
+        "numpy": np.__version__,
+        "opencv": cv2.__version__,
+        "scipy": scipy.__version__,
+    }
+    try:
+        import open3d
+        env["open3d"] = open3d.__version__
+    except Exception:
+        pass
+    return env
 
 
 def reprojection_errors(scene) -> np.ndarray:
@@ -55,7 +94,18 @@ def main() -> None:
     parser.add_argument("--sensor-width-mm", type=float, default=None, help="Known sensor width in mm")
     parser.add_argument("--fov", type=float, default=55.0, help="Fallback horizontal FOV in degrees if EXIF has no usable focal length (default: 55)")
     parser.add_argument("--seed", type=int, nargs=2, default=(0, 1), metavar=("CAM_I", "CAM_J"), help="Two-view seed camera indices (default: 0 1)")
+    parser.add_argument("--rng-seed", type=int, default=0,
+                        help="Seed for the RANSAC random streams (default: 0). Every stage is "
+                             "deterministic given this value; vary it to sample run-to-run spread")
     parser.add_argument("--outlier-px", type=float, default=4.0, help="Reprojection error threshold (px) for the outlier filter pass (default: 4.0)")
+    parser.add_argument("--max-depth-ratio", type=float, default=10.0,
+                        help="Drop points deeper than this multiple of the median scene depth "
+                             "(default: 10, generous enough to leave benchmark datasets untouched; "
+                             "try 2-3 for a small object shot indoors, 0 to disable)")
+    parser.add_argument("--subject-only", action="store_true",
+                        help="Keep only structure that stays centred across views -- the object you "
+                             "walked around -- and discard surroundings. Use for object captures where "
+                             "the background sits at a similar distance to the subject")
     parser.add_argument("--dense", action="store_true", help="Also run dense stereo (MVS) + Poisson meshing")
     args = parser.parse_args()
 
@@ -66,35 +116,72 @@ def main() -> None:
     images, K = load_scene(args.images, focal_mm=args.focal_mm, sensor_width_mm=args.sensor_width_mm, fallback_fov_deg=args.fov)
     print(f"Loaded {len(images)} images. Estimated K:\n{K}")
 
+    timings = {}
     t0 = time.time()
-    keypoints, tracks = build_tracks(images)
-    print(f"Built {len(tracks)} tracks in {time.time()-t0:.1f}s")
+    keypoints, tracks = build_tracks(images, rng_seed=args.rng_seed + 42)
+    timings["tracks_s"] = round(time.time() - t0, 2)
+    print(f"Built {len(tracks)} tracks in {timings['tracks_s']:.1f}s")
 
     t0 = time.time()
     try:
         scene, log = run_incremental_sfm(
             images, K, keypoints, tracks, seed=tuple(args.seed),
             ba_max_nfev=30, bundle_adjust_fn=hand_bundle_adjust,
+            rng_seed=args.rng_seed,
         )
     except RuntimeError as e:
         print(f"\nReconstruction failed: {e}")
         print("Try a different --seed pair (needs enough shared tracks and real parallax),")
         print("or check that photos are roughly in capture order and overlap enough to match.")
         raise SystemExit(1)
+    timings["register_s"] = round(time.time() - t0, 2)
     n_registered = 2 + len(log)
-    print(f"Registered {n_registered}/{len(images)} cameras in {time.time()-t0:.1f}s")
+    print(f"Registered {n_registered}/{len(images)} cameras in {timings['register_s']:.1f}s")
     if n_registered < len(images):
         print(f"WARNING: {len(images) - n_registered} camera(s) could not be registered "
               f"(insufficient correspondences to the growing reconstruction).")
 
-    hand_bundle_adjust(scene, fixed_camera_ids=(args.seed[0],), max_iters=50)
+    t0 = time.time()
+    hand_bundle_adjust(scene, fixed_camera_ids=(args.seed[0],),
+                       gauge_pair=tuple(args.seed), max_iters=50)
     n_before = len(scene.points)
     scene = filter_outlier_observations(scene, max_error_px=args.outlier_px)
-    hand_bundle_adjust(scene, fixed_camera_ids=(args.seed[0],), max_iters=50)
+    hand_bundle_adjust(scene, fixed_camera_ids=(args.seed[0],),
+                       gauge_pair=tuple(args.seed), max_iters=50)
+    timings["final_ba_s"] = round(time.time() - t0, 2)
     print(f"Outlier filter (>{args.outlier_px}px): kept {len(scene.points)}/{n_before} points")
+
+    if args.subject_only:
+        n_before_sub = len(scene.points)
+        scene = filter_centred_points(scene)
+        print(f"Subject filter (centred across views): kept {len(scene.points)}/{n_before_sub} points")
+
+    if args.max_depth_ratio > 0:
+        n_before_far = len(scene.points)
+        scene = filter_far_points(scene, max_depth_ratio=args.max_depth_ratio)
+        dropped = n_before_far - len(scene.points)
+        if dropped:
+            print(f"Far-point filter (>{args.max_depth_ratio:g}x median depth): "
+                  f"dropped {dropped}, kept {len(scene.points)}/{n_before_far} points")
 
     errs = reprojection_errors(scene)
     print(f"Reprojection error (px): median={np.median(errs):.3f} mean={errs.mean():.3f} max={errs.max():.3f}")
+
+    # A low reprojection error does not mean the geometry is meaningful. If the
+    # cameras collapse onto one point, bundle adjustment has fitted a
+    # pure-rotation solution: depth is unconstrained, points sit at infinity,
+    # and the residuals still look excellent. Check against the seed's unit
+    # baseline, which fixes the gauge.
+    centres = np.stack([-c.R.T @ c.t for c in scene.cameras.values()])
+    span = float(np.linalg.norm(centres - centres.mean(axis=0), axis=1).max())
+    if span < 1e-3:
+        print(f"\nWARNING: the recovered cameras span only {span:.3g} against a unit seed "
+              f"baseline -- they have collapsed to a single point.")
+        print("The solve found a pure-rotation (panorama) solution, so this reconstruction "
+              "has no usable depth despite the low reprojection error above.")
+        print("Usual cause: the subject gives too few stable features of its own (specular "
+              "or textureless), so only distant background was matched, where parallax is "
+              "negligible.")
 
     colorize_points(scene, images)
     xyz = scene.points_xyz()
@@ -123,6 +210,38 @@ def main() -> None:
     )
     print(f"Wrote scene cache -> {cache_path}")
 
+    # Everything needed to reproduce this exact run, and the measurements the
+    # report quotes as runtime. Written next to the result so a number in the
+    # report can always be traced back to the run that produced it.
+    errs_px = reprojection_errors(scene)
+    manifest = {
+        "dataset": str(args.images),
+        "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "git_commit": _git_commit(),
+        "environment": _environment(),
+        "seeds": {
+            "rng_seed": args.rng_seed,
+            "fundamental_ransac": args.rng_seed + 42,
+            "pnp_ransac": args.rng_seed,
+            "seed_pair": list(args.seed),
+        },
+        "intrinsics": {"fx": float(K[0, 0]), "cx": float(K[0, 2]), "cy": float(K[1, 2])},
+        "result": {
+            "n_images": len(images),
+            "n_registered": int(n_registered),
+            "n_points": int(len(scene.points)),
+            "n_tracks": int(len(tracks)),
+            "reproj_median_px": float(np.median(errs_px)),
+            "reproj_mean_px": float(errs_px.mean()),
+            "camera_span": float(span),
+            "seed_baseline": float(np.linalg.norm(centres[1] - centres[0])) if len(centres) > 1 else None,
+        },
+        "runtime_s": {**timings, "total_s": round(sum(timings.values()), 2)},
+    }
+    manifest_path = out_dir / "run_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2))
+    print(f"Wrote run manifest -> {manifest_path}")
+
     if args.dense:
         from sfm.mvs.fuse import dense_reconstruct
         from sfm.mvs.mesh import clean_dense_cloud, keep_significant_clusters, poisson_mesh
@@ -148,6 +267,19 @@ def main() -> None:
             images, cam_ids, Ks, Rs, ts, params.min_depth, params.max_depth, downscale=2
         )
         print(f"Dense stereo: {dense_pts.shape[0]:,} raw points in {time.time()-t0:.1f}s")
+
+        # Pruning the sparse cloud to the subject does not by itself keep the
+        # surroundings out of the mesh: dense stereo re-matches whole images
+        # and happily rebuilds the fence behind the object. Clip the dense
+        # result to the volume the retained sparse points occupy, with a
+        # margin, so --subject-only reaches all the way to the mesh.
+        if args.subject_only and len(xyz) > 10:
+            lo, hi = np.percentile(xyz, [1, 99], axis=0)
+            pad = 0.15 * (hi - lo)
+            lo, hi = lo - pad, hi + pad
+            inside = np.all((dense_pts >= lo) & (dense_pts <= hi), axis=1)
+            print(f"Subject volume clip: kept {inside.sum():,}/{len(dense_pts):,} dense points")
+            dense_pts, dense_colors = dense_pts[inside], dense_colors[inside]
 
         voxel_size = params.voxel_size
         pcd = clean_dense_cloud(dense_pts, dense_colors, voxel_size=voxel_size)

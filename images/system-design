@@ -1,0 +1,66 @@
+┌──────────────────┐        ┌────────────────────────────────────────────────┐
+│                  │        │      Acquire photographs                       │
+│ 1. IMAGE         │        │      (phone camera, or benchmark dataset)      │
+│    PREPARATION   │ ─────▶ │                    │                           │
+│                  │        │                    ▼                           │
+│                  │        │      Resolve intrinsics K                      │
+│                  │        │        explicit flags                          │
+│                  │        │        → calibration sidecar                   │
+│                  │        │        → EXIF focal length                     │
+│                  │        │        → 55° field-of-view fallback            │
+│                  │        │                    │                           │
+│                  │        │   ┌ ─ ─ ─ ─ ─ ─ ─ ─┴─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐   │
+│                  │        │     no ground control points surveyed:         │
+│                  │        │   │ scale remains arbitrary throughout     │   │
+│                  │        │   └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘   │
+└──────────────────┘        └────────────────────┬───────────────────────────┘
+                                                 │
+┌──────────────────┐        ┌────────────────────▼───────────────────────────┐
+│                  │        │   Feature extraction (SIFT)                    │
+│ 2. POINT CLOUD   │        │             ↓                                  │
+│    GENERATION    │ ─────▶ │   Matching + ratio test  ──▶ keypoints,        │
+│                  │        │             ↓                 descriptors      │
+│                  │        │   Geometric verification (RANSAC on F)         │
+│                  │        │             ↓                                  │
+│                  │        │   Track construction (union-find)              │
+│                  │        │             ↓                                  │
+│                  │        │   Two-view seed  ──▶ fixes gauge: R=I, t=0,    │
+│                  │        │             ↓          unit baseline           │
+│                  │        │    ┌──▶ Resectioning (PnP)                     │
+│                  │        │    │        ↓                                  │
+│                  │        │    │   Triangulation                           │
+│                  │        │    │        ↓                                  │
+│                  │        │    └─── Bundle adjustment    (next camera)     │
+│                  │        │             ↓                                  │
+│                  │        │   ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  once, after the loop    │
+│                  │        │   Outlier + depth filters                      │
+│                  │        │             ↓                                  │
+│                  │        │   Final bundle adjustment                      │
+│                  │        │             ↓                                  │
+│                  │        │   Degeneracy check  ──▶ camera-centre span     │
+│                  │        │             ↓              vs unit baseline    │
+│                  │        │   SPARSE CLOUD + CAMERA POSES                  │
+│                  │        │             ↓                                  │
+│                  │        │   Dense MVS (optional) ──▶ dense cloud, mesh   │
+└──────────────────┘        └────────────────────┬───────────────────────────┘
+                                                 │
+┌──────────────────┐        ┌────────────────────▼───────────────────────────┐
+│                  │        │   Umeyama similarity alignment                 │
+│ 3. EVALUATION    │        │   (camera centres → reference frame)           │
+│    AND           │ ─────▶ │             ↓                                  │
+│    COMPARISON    │        │   ┌─────────────────────┬────────────────────┐ │
+│                  │        │   │ vs GROUND TRUTH     │ vs COLMAP          │ │
+│                  │        │   │ Rathaus, statue,    │ identical inputs,  │ │
+│                  │        │   │ Buddha, Fountain    │ no tuning          │ │
+│                  │        │   │                     │                    │ │
+│                  │        │   │ rotation error (°)  │ registration rate  │ │
+│                  │        │   │ centre error (%)    │ pose agreement     │ │
+│                  │        │   │ completeness        │ capture geometry   │ │
+│                  │        │   │ F-score             │   measured from    │ │
+│                  │        │   │                     │   both solves      │ │
+│                  │        │   └─────────────────────┴────────────────────┘ │
+│                  │        │             ↓                                  │
+│                  │        │   Subject-coverage check                       │
+│                  │        │   (reproject points into the photographs)      │
+└──────────────────┘        └────────────────────────────────────────────────┘
+

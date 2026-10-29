@@ -94,7 +94,7 @@ def main() -> None:
 
     print(f"\nTotal wall time (tracks excluded): {time.time() - t_total0:.1f}s")
 
-    out_dir = ROOT / "outputs" / "hand_ba"
+    out_dir = ROOT / "outputs" / "_stages" / "hand_ba"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     xyz = scene.points_xyz()
