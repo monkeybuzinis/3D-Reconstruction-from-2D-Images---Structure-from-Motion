@@ -2,7 +2,7 @@
 Capture geometry measured from BOTH solves, side by side.
 
 Why this script replaces the earlier numbers. The arc / angular-step /
-baseline-over-depth table in PLAN.md was computed from this project's own
+baseline-over-depth table was originally computed from this project's own
 recovered camera poses. That is fine where the reconstruction succeeded and
 circular where it did not: on a dataset this pipeline got wrong, the
 "measured capture geometry" is a description of the failure, not an

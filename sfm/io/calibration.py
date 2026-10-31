@@ -99,8 +99,11 @@ def estimate_intrinsics(
     """
     if override_focal_px is not None:
         focal_px = override_focal_px
+        print(f"Using the focal length supplied on the command line: {focal_px:.1f} px")
     else:
         focal_px = _focal_px_from_exif(image_path, width, height)
+        if focal_px is not None:
+            print(f"Using EXIF metadata to estimate the focal length: {focal_px:.1f} px")
         if focal_px is None:
             # Unlike the 35 mm-equivalent tag above, this constant is not a
             # convention to be interpreted -- it is a guess about one angle,
@@ -111,6 +114,8 @@ def estimate_intrinsics(
             # Reading the same 55 degrees across the diagonal instead would
             # overestimate the focal length by about 70%.
             focal_px = (width / 2) / np.tan(np.radians(fallback_fov_deg) / 2)
+            print(f"No usable EXIF: assuming a {fallback_fov_deg:.0f} degree field of view, "
+                  f"which gives {focal_px:.1f} px. This is a guess, not a measurement.")
 
     return np.array(
         [

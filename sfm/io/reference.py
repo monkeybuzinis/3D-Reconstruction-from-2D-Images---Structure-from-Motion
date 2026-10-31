@@ -1,8 +1,7 @@
 """
 Load the reference camera poses + point cloud from Fountain/solution.graph
 (a g2o-format sparse bundle adjustment solve, NOT the true Strecha laser-scan
-ground truth -- that dataset's hosting service is no longer reachable, see
-PLAN.md). This is the reference used for the evaluation stage: honest about
+ground truth -- that dataset's hosting service is no longer reachable). This is the reference used for the evaluation stage: honest about
 being "someone else's independent SfM solve," not laser-measured geometry.
 
 solution.graph explicitly tags each line's type (VERTEX_CAM / VERTEX_XYZ),

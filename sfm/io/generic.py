@@ -14,7 +14,8 @@ import cv2
 import numpy as np
 
 from sfm.io.calibration import estimate_intrinsics
-from sfm.io.camera_file import find_camera_file, load_camera_file
+from sfm.io.camera_file import (find_camera_file, find_cameras_txt,
+                                load_camera_file, load_cameras_txt)
 
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".ppm", ".pgm"}
 
@@ -70,9 +71,11 @@ def load_scene(
     K is resolved in order of trust:
       1. An explicit focal_mm + sensor_width_mm override, both measured
          across the same axis as the image's width.
-      2. A Strecha-style `<image>.camera` sidecar file, if the dataset ships
-         one (e.g. Fountain-P11, Rathaus) -- this is real calibration, not
-         a guess, so it always wins over EXIF when present.
+      2. Calibration shipped with the dataset, in either format this project
+         encounters: a Strecha-style `<image>.camera` sidecar (Fountain-P11,
+         Rathaus, Herz-Jesus-P8/P25) or a COLMAP `cameras.txt` beside the
+         images (ETH3D). This is real calibration, not a guess, so it always
+         wins over EXIF when present.
       3. EXIF-based estimation (sfm/io/calibration.py), falling back to an
          assumed FOV if EXIF has no usable focal length either.
     """
@@ -91,6 +94,12 @@ def load_scene(
     if camera_file is not None:
         K, _R, _t = load_camera_file(camera_file)
         print(f"Using real calibration from {camera_file.name} (not an EXIF/FOV guess)")
+        return images, K
+
+    cameras_txt = find_cameras_txt(paths[0])
+    if cameras_txt is not None:
+        K = load_cameras_txt(cameras_txt, w, h)
+        print(f"Using real calibration from {cameras_txt.name} (not an EXIF/FOV guess)")
         return images, K
 
     return images, estimate_intrinsics(paths[0], w, h, fallback_fov_deg=fallback_fov_deg)

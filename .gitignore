@@ -19,6 +19,13 @@ dataset/library-statue/
 dataset/office/
 dataset/robotpu/
 dataset/shoe/
-dataset/woodlog/
 dataset/iCloud Photos*/
 documents/
+
+# downloaded benchmark copies with ground-truth cameras (openMVG mirror)
+dataset/_benchmarks/
+PLAN.md
+VIDEO1_SCRIPT.md
+VIDEO2_SCRIPT.md
+DEMO_COMMANDS.md
+pinhole-camera.webp

@@ -114,7 +114,7 @@ def main() -> None:
 
     print(f"Loading images from {args.images} ...")
     images, K = load_scene(args.images, focal_mm=args.focal_mm, sensor_width_mm=args.sensor_width_mm, fallback_fov_deg=args.fov)
-    print(f"Loaded {len(images)} images. Estimated K:\n{K}")
+    print(f"Loaded {len(images)} images. Camera matrix K:\n{K}")
 
     timings = {}
     t0 = time.time()
@@ -136,6 +136,26 @@ def main() -> None:
         raise SystemExit(1)
     timings["register_s"] = round(time.time() - t0, 2)
     n_registered = 2 + len(log)
+
+    # A reconstruction can come out of the loop with nothing in it: the seed
+    # pair triangulates few points, no further camera shares enough of them to
+    # resection against, and filtering removes what little there was. Bundle
+    # adjustment on an empty scene raises deep inside the Jacobian assembly,
+    # which hides the actual problem, so say what happened instead. The same
+    # check runs again after the outlier filter, which is the other way the
+    # scene can empty: a badly conditioned solve puts every observation past
+    # the residual threshold and the filter then removes all of them.
+    def exit_if_empty(stage: str) -> None:
+        if scene.observations:
+            return
+        print(f"\nReconstruction is empty after {stage}: {n_registered}/{len(images)} "
+              f"cameras registered and no surviving observations.")
+        print("The seed pair did not give enough structure for any other view to register "
+              "against. Try a different --seed pair, or check that consecutive photographs "
+              "overlap enough to share features.")
+        raise SystemExit(1)
+
+    exit_if_empty("registration")
     print(f"Registered {n_registered}/{len(images)} cameras in {timings['register_s']:.1f}s")
     if n_registered < len(images):
         print(f"WARNING: {len(images) - n_registered} camera(s) could not be registered "
@@ -146,6 +166,7 @@ def main() -> None:
                        gauge_pair=tuple(args.seed), max_iters=50)
     n_before = len(scene.points)
     scene = filter_outlier_observations(scene, max_error_px=args.outlier_px)
+    exit_if_empty(f"the >{args.outlier_px}px outlier filter")
     hand_bundle_adjust(scene, fixed_camera_ids=(args.seed[0],),
                        gauge_pair=tuple(args.seed), max_iters=50)
     timings["final_ba_s"] = round(time.time() - t0, 2)

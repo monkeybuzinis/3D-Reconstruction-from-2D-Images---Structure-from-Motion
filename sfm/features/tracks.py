@@ -77,7 +77,18 @@ def extract_all_keypoints(
 
 
 def _flann_match_descriptors(desc0: np.ndarray, desc1: np.ndarray, ratio: float = 0.75) -> np.ndarray:
-    """FLANN KNN + Lowe's ratio test. Returns (M, 2) array of (idx0, idx1) index pairs."""
+    """
+    FLANN KNN + Lowe's ratio test. Returns (M, 2) array of (idx0, idx1) index pairs.
+
+    algorithm=1 is FLANN's randomised kd-tree forest, and `checks` caps how
+    many leaves a query may visit, so this is an APPROXIMATE nearest-neighbour
+    search whose answer depends on how the trees were built. The trees are
+    built from OpenCV's global RNG, which build_tracks seeds; without that
+    seed the same images produce a different match set on every run, and the
+    track count drifts by a few tenths of a per cent each time. On a dataset
+    sitting near a registration threshold that is enough to change the number
+    of cameras recovered, so it is not the cosmetic difference it looks like.
+    """
     index_params = dict(algorithm=1, trees=5)
     search_params = dict(checks=64)
     flann = cv2.FlannBasedMatcher(index_params, search_params)
@@ -120,6 +131,11 @@ def build_tracks(
     somewhere in the chain) has that image's entry dropped rather than
     discarding the whole track.
     """
+    # FLANN's kd-tree forest is randomised and draws from OpenCV's global
+    # RNG, so this is what makes a run repeatable; see
+    # _flann_match_descriptors.
+    cv2.setRNGSeed(rng_seed)
+
     keypoints, descriptors = extract_all_keypoints(images)
     image_ids = sorted(images)
 
@@ -135,7 +151,7 @@ def build_tracks(
     def node(image_id: int, kp_idx: int) -> int:
         return offsets[image_id] + kp_idx
 
-    for i, j in combinations(image_ids, 2):
+    for pair_index, (i, j) in enumerate(combinations(image_ids, 2)):
         matches = _flann_match_descriptors(descriptors[i], descriptors[j], ratio=ratio)
         if len(matches) < 8:
             continue
@@ -148,7 +164,8 @@ def build_tracks(
             # is reproducible and a different rng_seed gives an independent
             # repeat for the run-to-run distributions.
             _F, inlier_idx = ransac_fundamental_matrix(
-                pts_i, pts_j, threshold=ransac_threshold, max_iters=ransac_iters
+                pts_i, pts_j, threshold=ransac_threshold, max_iters=ransac_iters,
+                seed=rng_seed + pair_index,
             )
         except RuntimeError:
             continue  # this pair never agreed on a consistent F; skip it rather than chain garbage

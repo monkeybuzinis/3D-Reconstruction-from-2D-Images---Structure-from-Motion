@@ -1,6 +1,7 @@
-numpy
-opencv-contrib-python>=4.8.0
-matplotlib
-pillow
-scipy
-open3d
+numpy==2.5.2
+opencv-contrib-python==5.0.0.93
+matplotlib==3.11.1
+pillow==12.3.0
+scipy==1.18.1
+open3d==0.19.0
+pycolmap==4.2.1

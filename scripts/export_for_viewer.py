@@ -1,6 +1,6 @@
 """
 Export the final hand-BA reconstruction (points + camera poses) as compact
-JSON for the browser-based interactive viewer artifact. Not part of the
+JSON for the browser-based interactive viewer. Not part of the
 core pipeline -- a one-off convenience for visualizing the result.
 
 Run from the repo root:

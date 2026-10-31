@@ -166,7 +166,7 @@ def dense_params(
     # point, every point at infinity -- produces a zero depth window and a zero
     # voxel, which then fails deep inside Open3D with nothing pointing back at
     # the real cause. That happens when the usable features all sit far enough
-    # away that a pure-rotation solution fits them (see PLAN.md), so say so.
+    # away that a pure-rotation solution fits them, so say so.
     # The two-view seed fixes the gauge with a UNIT baseline, so a healthy
     # reconstruction has camera centres spanning on the order of 1. When they
     # collapse to nearly a single point, bundle adjustment has found a

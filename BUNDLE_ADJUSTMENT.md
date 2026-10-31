@@ -1,6 +1,6 @@
 # Bundle Adjustment, in detail
 
-A from-scratch walkthrough of `sfm/ba/so3.py`, `sfm/ba/jacobian.py`, and `sfm/ba/lm.py` — the math behind each piece, why it's structured that way, and how it maps back to the code. Companion to [ARCHITECTURE.md](ARCHITECTURE.md) (where this fits in the pipeline) and [PLAN.md](PLAN.md) (when it was built).
+A from-scratch walkthrough of `sfm/ba/so3.py`, `sfm/ba/jacobian.py`, and `sfm/ba/lm.py` — the math behind each piece, why it's structured that way, and how it maps back to the code. Companion to [ARCHITECTURE.md](ARCHITECTURE.md) (where this fits in the pipeline).
 
 ## 1. What problem BA is actually solving
 

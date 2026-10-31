@@ -50,7 +50,7 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".ppm", ".
 # dataset name -> (image dir, our scene_cache). Every cache lives at
 # outputs/<dataset>/scene_cache.npz. Fountain's folder holds a
 # vertex_colors.ppm that is not a photograph (the generic loader would
-# otherwise count it as a 12th image -- a known wart, see PLAN.md).
+# otherwise count it as a 12th image -- a known wart).
 DATASETS = [
     "Fountain", "rathaus", "herzjesu",
     "woodlog", "office", "church", "guitar", "fire-hydrant",
