@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SfM Reconstruction Results</title>
+<meta name="description" content="Interactive 3D results from a classical Structure-from-Motion pipeline built from scratch.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root {
+  --void:#0a0d12; --panel:#12161d; --panel-2:#161b24; --border:#262d38; --border-soft:#1c222b;
+  --text:#e8ecf1; --dim:#8993a4; --faint:#5b6472; --accent:#5ec8d8; --warm:#d99a5e; --good:#7fd1a4;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--void);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.6;
+  padding-inline:20px;padding-block:48px 80px}
+.wrap{max-width:1120px;margin-inline:auto;display:flex;flex-direction:column;gap:72px}
+h1,h2,h3{margin:0;font-weight:600;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:clamp(2rem,5vw,3rem);line-height:1.05}
+h2{font-size:1.5rem} h3{font-size:1.05rem}
+p{margin:0}
+a{color:inherit}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+header{display:flex;flex-direction:column;gap:16px}
+.lede{max-width:62ch;color:var(--dim);font-size:1.1rem}
+.lede strong{color:var(--text);font-weight:500}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1px;background:var(--border);
+  border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-top:12px}
+.metric{background:var(--panel);padding:18px 20px;display:flex;flex-direction:column;gap:4px}
+.metric b{font-family:var(--mono);font-size:1.7rem;font-weight:500;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.1}
+.metric span{font-size:12.5px;color:var(--dim)}
+section{display:flex;flex-direction:column;gap:24px}
+.sec-head{display:flex;flex-direction:column;gap:8px;max-width:72ch}
+.sec-head p{color:var(--dim)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
+.card{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:6px;
+  overflow:hidden;text-decoration:none;transition:border-color .16s,transform .16s}
+.card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.card:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.card img{width:100%;aspect-ratio:4/3;object-fit:cover;background:#000;display:block;border-bottom:1px solid var(--border-soft)}
+.card-body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:12px}
+.card-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.kind{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);
+  border:1px solid var(--border);border-radius:3px;padding:2px 6px;white-space:nowrap}
+.stats{margin:0;display:flex;flex-wrap:wrap;gap:4px 18px}
+.stats div{display:flex;flex-direction:column}
+.stats dt{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+.stats dd{margin:0;font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+.stats dd.hi{color:var(--accent)}
+.card p{font-size:13.5px;color:var(--dim)}
+.open{font-family:var(--mono);font-size:12px;color:var(--accent);margin-top:auto}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.col{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+.col h3 span{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:2px}
+.col ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:14px;color:var(--dim)}
+.col.hand{border-left:2px solid var(--accent)}
+.col.lib{border-left:2px solid var(--warm)}
+.finding{display:grid;grid-template-columns:28px 1fr;gap:14px;padding-block:18px;border-top:1px solid var(--border-soft)}
+.finding:first-of-type{border-top:0}
+.finding .n{font-family:var(--mono);font-size:13px;color:var(--faint);padding-top:2px}
+.finding h3{margin-bottom:6px}
+.finding p{color:var(--dim);font-size:14px;max-width:76ch}
+.impact{margin-top:8px;font-family:var(--mono);font-size:12.5px;color:var(--good);display:block}
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:6px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:14px}
+th,td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--border-soft)}
+tr:last-child td{border-bottom:0}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:400}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.ok{color:var(--good)} .bad{color:var(--warm)}
+pre{margin:0;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:16px 18px;
+  overflow-x:auto;font-family:var(--mono);font-size:12.5px;color:var(--text);line-height:1.8}
+pre .c{color:var(--faint)}
+footer{border-top:1px solid var(--border);padding-top:24px;color:var(--dim);font-size:13.5px;display:flex;
+  flex-direction:column;gap:8px}
+footer a{color:var(--accent)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:520px){ .finding{grid-template-columns:1fr} .finding .n{display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<span class="eyebrow">Structure from Motion &middot; Computer Vision</span>
+<h1>3D reconstruction from photographs</h1>
+<p class="lede">A classical Structure-from-Motion pipeline built from scratch in Python &mdash; no deep learning, no scanner. Every point below was <strong>measured</strong> by multi-view geometry from ordinary photographs. Click any result to rotate it in your browser.</p>
+<div class="metrics">
+<div class="metric"><b>15</b><span>datasets reconstructed</span></div>
+<div class="metric"><b>152/246</b><span>cameras placed in total</span></div>
+<div class="metric"><b>0.035&deg;</b><span>best orientation error vs survey</span></div>
+<div class="metric"><b>0.18 px</b><span>median reprojection, Fountain-P11</span></div>
+</div>
+</header>
+<section><div class="sec-head"><h2>Every camera placed</h2><p>All images registered. These are the results the accuracy claims rest on.</p></div><div class="grid"><a class="card" href="viewers/church.html">
+<img src="reference/church.jpg" alt="One of the 11 photographs of Church" loading="lazy">
+<div class="card-body">
+<div class="card-head"><h3>Church</h3><span class="kind">phone</span></div>
+<dl class="stats">
+<div><dt>cameras</dt><dd class="hi">11/11</dd></div>
+<div><dt>points</dt><dd>5,836</dd></div>
+<div><dt>reprojection</dt><dd>0.39 px</dd></div>
+<div><dt>runtime</dt><dd>61 s</dd></div>
+</dl>
+<p>Every camera placed on a self-captured building.</p>
+<span class="open">Open 3D viewer &rarr;</span>
+</div></a><a class="card" href="viewers/fountain-P11.html">
+<img src="reference/fountain-P11.jpg" alt="One of the 11 photographs of Fountain-P11" loading="lazy">
+<div class="card-body">
+<div class="card-head"><h3>Fountain-P11</h3><span class="kind">benchmark</span></div>
+<dl class="stats">
+<div><dt>cameras</dt><dd class="hi">11/11</dd></div>
+<div><dt>points</dt><dd>8,655</dd></div>
+<div><dt>reprojection</dt><dd>0.18 px</dd></div>
+<div><dt>runtime</dt><dd>63 s</dd></div>
+</dl>
+<p>Surveyed calibration and surveyed poses. 0.035° mean orientation error against the survey.</p>
+<span class="open">Open 3D viewer &rarr;</span>
+</div></a><a class="card" href="viewers/shoe.html">
+<img src="reference/shoe.jpg" alt="One of the 25 photographs of Shoe" loading="lazy">
+<div class="card-body">
+<div class="card-head"><h3>Shoe</h3><span class="kind">phone</span></div>
+<dl class="stats">
+<div><dt>cameras</dt><dd class="hi">25/25</dd></div>
+<div><dt>points</dt><dd>37,690</dd></div>
+<div><dt>reprojection</dt><dd>0.28 px</dd></div>
+<div><dt>runtime</dt><dd>1259 s</dd></div>
+</dl>
+<p>Best self-captured result. Agrees with COLMAP to 1.31° with no calibration beyond EXIF.</p>
+<span class="open">Open 3D viewer &rarr;</span>
+</div></a><a class="card" href="viewers/woodlog.html">
+<img src="reference/woodlog.jpg" alt="One of the 12 photographs of Woodlog" loading="lazy">
+<div class="card-body">
+<div class="card-head"><h3>Woodlog</h3><span class="kind">phone</span></div>
+<dl class="stats">
+<div><dt>cameras</dt><dd class="hi">12/12</dd></div>
+<div><dt>points</dt><dd>63,266</dd></div>
+<div><dt>reprojection</dt><dd>0.34 px</dd></div>
+<div><dt>runtime</dt><dd>311 s</dd></div>
+</dl>
+<p>Bark gives dense texture — the best-behaved phone capture, and the one dataset shipped in the repository.</p>
+<span class="open">Open 3D viewer &rarr;</span>
+</div></a></div></section>
+<section><div class="sec-head"><h2>Partially reconstructed</h2><p>Some views could not be registered. Accuracy is reported only over those that were.</p></div><div class="grid"><a class="card" href="viewers/buffalo.html">
+<img src="reference/buffalo.jpg" alt="One of the 23 photographs of Buffalo" loading="lazy">
+<div class="card-body">
+<div class="card-head"><h3>Buffalo</h3><span class="kind">phone</span></div>
+<dl class="stats">
+<div><dt>cameras</dt><dd class="hi">22/23</dd></div>
+<div><dt>points</dt><dd>19,395</dd></div>
+<div><dt>reprojection</dt><dd>0.32 px</dd></div>
+<div><dt>runtime</dt><dd>1303 s</dd></div>
+</dl>
+<p>Nearly complete, though the subject occupies a small part of each frame.</p>
+<span class="open">Open 3D viewer &rarr;</span>
+</div></a><a class="card" href="viewers/office.html">
+<img src="reference/office.jpg" alt="One of the 14 photographs of Office" loading="lazy">
+<div class="card-body">
+<div class="card-head"><h3>Office</h3><span class="kind">phone</span></div>
+<dl class="stats">
+<div><dt>cameras</dt><dd class="hi">12/14</dd></div>
+<div><dt>points</dt><dd>12,061</dd></div>
+<div><dt>reprojection</dt><dd>0.34 px</dd></div>
+<div><dt>runtime</dt><dd>109 s</dd></div>
+</dl>
+<p>Indoor scene, most views placed.</p>
+<span class="open">Open 3D viewer &rarr;</span>
+</div></a><a class="card" href="viewers/rathaus.html">
+<img src="reference/rathaus.jpg" alt="One of the 7 photographs of Rathaus" loading="lazy">
+<div class="card-body">
+<div class="card-head"><h3>Rathaus</h3><span class="kind">benchmark</span></div>
+<dl class="stats">
+<div><dt>cameras</dt><dd class="hi">5/7</dd></div>
+<div><dt>points</dt><dd>15,571</dd></div>
+<div><dt>reprojection</dt><dd>0.99 px</dd></div>
+<div><dt>runtime</dt><dd>53 s</dd></div>
+</dl>
+<p>The one set with measured 3D points as well as poses. More accurate than COLMAP here.</p>
+<span class="open">Open 3D viewer &rarr;</span>
+</div></a><a class="card" href="viewers/guitar.html">
+<img src="reference/guitar.jpg" alt="One of the 16 photographs of Guitar" loading="lazy">
+<div class="card-body">
+<div class="card-head"><h3>Guitar</h3><span class="kind">phone</span></div>
+<dl class="stats">
+<div><dt>cameras</dt><dd class="hi">11/16</dd></div>
+<div><dt>points</dt><dd>70,269</dd></div>
+<div><dt>reprojection</dt><dd>0.42 px</dd></div>
+<div><dt>runtime</dt><dd>557 s</dd></div>
+</dl>
+<p>Most points land off the subject: the surrounding room supplies the texture.</p>
+<span class="open">Open 3D viewer &rarr;</span>
+</div></a><a class="card" href="viewers/statue.html">
+<img src="reference/statue.jpg" alt="One of the 11 photographs of ETH3D statue" loading="lazy">
+<div class="card-body">
+<div class="card-head"><h3>ETH3D statue</h3><span class="kind">phone</span></div>
+<dl class="stats">
+<div><dt>cameras</dt><dd class="hi">7/11</dd></div>
+<div><dt>points</dt><dd>2,419</dd></div>
+<div><dt>reprojection</dt><dd>0.14 px</dd></div>
+<div><dt>runtime</dt><dd>48 s</dd></div>
+</dl>
+<p>Wide field of view; the metadata estimate is poor here.</p>
+<span class="open">Open 3D viewer &rarr;</span>
+</div></a><a class="card" href="viewers/herzjesu.html">
+<img src="reference/herzjesu.jpg" alt="One of the 23 photographs of Herz-Jesu" loading="lazy">
+<div class="card-body">
+<div class="card-head"><h3>Herz-Jesu</h3><span class="kind">benchmark</span></div>
+<dl class="stats">
+<div><dt>cameras</dt><dd class="hi">13/23</dd></div>
+<div><dt>points</dt><dd>8,509</dd></div>
+<div><dt>reprojection</dt><dd>0.46 px</dd></div>
+<div><dt>runtime</dt><dd>148 s</dd></div>
+</dl>
+<p>Benchmark façade; roughly half the views register.</p>
+<span class="open">Open 3D viewer &rarr;</span>
+</div></a><a class="card" href="viewers/library-statue.html">
+<img src="reference/library-statue.jpg" alt="One of the 16 photographs of Library Statue" loading="lazy">
+<div class="card-body">
+<div class="card-head"><h3>Library Statue</h3><span class="kind">phone</span></div>
+<dl class="stats">
+<div><dt>cameras</dt><dd class="hi">8/16</dd></div>
+<div><dt>points</dt><dd>32,754</dd></div>
+<div><dt>reprojection</dt><dd>0.31 px</dd></div>
+<div><dt>runtime</dt><dd>557 s</dd></div>
+</dl>
+<p>Half the views placed; COLMAP places all sixteen.</p>
+<span class="open">Open 3D viewer &rarr;</span>
+</div></a><a class="card" href="viewers/child-statue.html">
+<img src="reference/child-statue.jpg" alt="One of the 13 photographs of Child Statue" loading="lazy">
+<div class="card-body">
+<div class="card-head"><h3>Child Statue</h3><span class="kind">phone</span></div>
+<dl class="stats">
+<div><dt>cameras</dt><dd class="hi">6/13</dd></div>
+<div><dt>points</dt><dd>4,748</dd></div>
+<div><dt>reprojection</dt><dd>0.47 px</dd></div>
+<div><dt>runtime</dt><dd>83 s</dd></div>
+</dl>
+<p>Smooth stone, little to match on.</p>
+<span class="open">Open 3D viewer &rarr;</span>
+</div></a><a class="card" href="viewers/fire-hydrant.html">
+<img src="reference/fire-hydrant.jpg" alt="One of the 16 photographs of Fire Hydrant" loading="lazy">
+<div class="card-body">
+<div class="card-head"><h3>Fire Hydrant</h3><span class="kind">phone</span></div>
+<dl class="stats">
+<div><dt>cameras</dt><dd class="hi">5/16</dd></div>
+<div><dt>points</dt><dd>4,404</dd></div>
+<div><dt>reprojection</dt><dd>0.27 px</dd></div>
+<div><dt>runtime</dt><dd>145 s</dd></div>
+</dl>
+<p>Smooth painted metal. A failure of feature matching, not of capture.</p>
+<span class="open">Open 3D viewer &rarr;</span>
+</div></a></div></section>
+<section><div class="sec-head"><h2>Failed</h2><p>Too few points survived to be a reconstruction. Included because the report argues from them.</p></div><div class="grid"><a class="card" href="viewers/open-mouth.html">
+<img src="reference/open-mouth.jpg" alt="One of the 9 photographs of Open Mouth" loading="lazy">
+<div class="card-body">
+<div class="card-head"><h3>Open Mouth</h3><span class="kind">phone</span></div>
+<dl class="stats">
+<div><dt>cameras</dt><dd class="hi">2/9</dd></div>
+<div><dt>points</dt><dd>20</dd></div>
+<div><dt>reprojection</dt><dd>0.31 px</dd></div>
+<div><dt>runtime</dt><dd>14 s</dd></div>
+</dl>
+<p>Twenty surviving points. Unusable.</p>
+<span class="open">Open 3D viewer &rarr;</span>
+</div></a><a class="card" href="viewers/robotpu.html">
+<img src="reference/robotpu.jpg" alt="One of the 39 photographs of Robotpu" loading="lazy">
+<div class="card-body">
+<div class="card-head"><h3>Robotpu</h3><span class="kind">phone</span></div>
+<dl class="stats">
+<div><dt>cameras</dt><dd class="hi">2/39</dd></div>
+<div><dt>points</dt><dd>3</dd></div>
+<div><dt>reprojection</dt><dd>0.11 px</dd></div>
+<div><dt>runtime</dt><dd>172 s</dd></div>
+</dl>
+<p>Three points from thirty-nine photographs. The one genuine capture failure — COLMAP fails identically.</p>
+<span class="open">Open 3D viewer &rarr;</span>
+</div></a></div></section>
+<section><div class="sec-head"><h2>How to read these</h2>
+<p>Each viewer shows the sparse point cloud the pipeline measured, the recovered camera positions around it, and &mdash; where the dense stage ran &mdash; a Poisson mesh. <strong>Cameras</strong> is how many photographs were successfully placed; <strong>reprojection</strong> is how far the 3D points land from where they were actually observed. A low reprojection error on a failed reconstruction means the solver converged on a wrong answer, which is why both numbers appear together.</p>
+<p>The pipeline, the evaluation code and the full report are in the <a href="https://github.com/monkeybuzinis/3D-Reconstruction-from-2D-Images---Structure-from-Motion">repository</a>. See also the <a href="architecture.html">module architecture</a>.</p>
+</div></section>
+</div>
+</body>
+</html>
