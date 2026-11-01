@@ -252,7 +252,7 @@ footer a{color:var(--accent)}
 <p>Smooth painted metal gives feature matching almost nothing to hold. COLMAP registers all 16 — the photographs were workable; this pipeline was not.</p>
 <span class="open">Open 3D viewer &rarr;</span>
 </div></a></div></section>
-<section><div class="sec-head"><h2>Too few points to be a reconstruction</h2><p>Included because the report argues from them. The distinction that matters is whether COLMAP fails on the same photographs: if it does, the capture was inadequate; if it does not, this pipeline was.</p></div><div class="grid"><a class="card" href="viewers/open-mouth.html">
+<section><div class="sec-head"><h2>Too few points to be a reconstruction</h2><p>For these two the problem is mostly in how the photographs were taken rather than in the pipeline. The test is whether COLMAP fails on the same images: where it does, the capture was inadequate; where it does not, this pipeline was.</p></div><div class="grid"><a class="card" href="viewers/open-mouth.html">
 <img src="reference/open-mouth.jpg" alt="One of the 9 photographs of Open Mouth" loading="lazy">
 <div class="card-body">
 <div class="card-head"><h3>Open Mouth</h3><span class="kind">phone</span></div>
@@ -274,7 +274,7 @@ footer a{color:var(--accent)}
 <div><dt>reprojection</dt><dd>0.11 px</dd></div>
 <div><dt>dense mesh</dt><dd>yes</dd></div>
 </dl>
-<p>The camera barely moved relative to the robot, so there is almost no parallax to triangulate from. COLMAP places the same 2 of 39. This is the one genuine capture failure.</p>
+<p>The robot was rotated while the camera stayed still. Structure from motion assumes a rigid scene and a moving camera — here the background says the camera never moved while the robot says it orbited, and no single solution satisfies both. COLMAP places the same 2 of 39: the photographs, not the code, are the limit.</p>
 <span class="open">Open 3D viewer &rarr;</span>
 </div></a></div></section>
 <section><div class="sec-head"><h2>How to read these</h2>
