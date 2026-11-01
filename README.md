@@ -8,9 +8,13 @@ It has been run on **16 datasets**: four published benchmarks that ship external
 
 **Library-assisted, deliberately** (the same "safe library for a solved sub-problem" boundary throughout): SIFT/FLANN for 2D feature matching, `scipy.optimize.least_squares` as a first working bundle adjustment before the hand-written LM solver replaced it, `cv2.StereoSGBM` for dense per-pixel stereo, and Open3D for Poisson surface reconstruction.
 
+**[→ View the reconstructions in 3D](https://monkeybuzinis.github.io/3D-Reconstruction-from-2D-Images---Structure-from-Motion/)** — every result below, rotatable in your browser, including the failures. Nothing to download.
+
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the module dependency graph and data flow, and [BUNDLE_ADJUSTMENT.md](BUNDLE_ADJUSTMENT.md) for a from-scratch walkthrough of the hand-written optimizer's math.
 
 ## Results
+
+Every reconstruction below can be inspected directly at the [results site](https://monkeybuzinis.github.io/3D-Reconstruction-from-2D-Images---Structure-from-Motion/).
 
 ### Against externally measured camera poses
 

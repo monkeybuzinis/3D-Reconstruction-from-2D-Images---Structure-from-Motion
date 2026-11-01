@@ -102,7 +102,7 @@ footer a{color:var(--accent)}
 <div><dt>cameras</dt><dd class="hi">11/11</dd></div>
 <div><dt>points</dt><dd>5,836</dd></div>
 <div><dt>reprojection</dt><dd>0.39 px</dd></div>
-<div><dt>runtime</dt><dd>61 s</dd></div>
+<div><dt>dense mesh</dt><dd>yes</dd></div>
 </dl>
 <p>Every camera placed on a self-captured building.</p>
 <span class="open">Open 3D viewer &rarr;</span>
@@ -114,7 +114,7 @@ footer a{color:var(--accent)}
 <div><dt>cameras</dt><dd class="hi">11/11</dd></div>
 <div><dt>points</dt><dd>8,655</dd></div>
 <div><dt>reprojection</dt><dd>0.18 px</dd></div>
-<div><dt>runtime</dt><dd>63 s</dd></div>
+<div><dt>dense mesh</dt><dd>yes</dd></div>
 </dl>
 <p>Surveyed calibration and surveyed poses. 0.035° mean orientation error against the survey.</p>
 <span class="open">Open 3D viewer &rarr;</span>
@@ -126,7 +126,7 @@ footer a{color:var(--accent)}
 <div><dt>cameras</dt><dd class="hi">25/25</dd></div>
 <div><dt>points</dt><dd>37,690</dd></div>
 <div><dt>reprojection</dt><dd>0.28 px</dd></div>
-<div><dt>runtime</dt><dd>1259 s</dd></div>
+<div><dt>dense mesh</dt><dd>yes</dd></div>
 </dl>
 <p>Best self-captured result. Agrees with COLMAP to 1.31° with no calibration beyond EXIF.</p>
 <span class="open">Open 3D viewer &rarr;</span>
@@ -138,12 +138,12 @@ footer a{color:var(--accent)}
 <div><dt>cameras</dt><dd class="hi">12/12</dd></div>
 <div><dt>points</dt><dd>63,266</dd></div>
 <div><dt>reprojection</dt><dd>0.34 px</dd></div>
-<div><dt>runtime</dt><dd>311 s</dd></div>
+<div><dt>dense mesh</dt><dd>yes</dd></div>
 </dl>
 <p>Bark gives dense texture — the best-behaved phone capture, and the one dataset shipped in the repository.</p>
 <span class="open">Open 3D viewer &rarr;</span>
 </div></a></div></section>
-<section><div class="sec-head"><h2>Partially reconstructed</h2><p>Some views could not be registered. Accuracy is reported only over those that were.</p></div><div class="grid"><a class="card" href="viewers/buffalo.html">
+<section><div class="sec-head"><h2>Not all cameras registered</h2><p>Some views could not be placed, so accuracy is reported only over those that were. Where COLMAP registers every view on the same photographs, the limit is this pipeline’s rather than the capture’s.</p></div><div class="grid"><a class="card" href="viewers/buffalo.html">
 <img src="reference/buffalo.jpg" alt="One of the 23 photographs of Buffalo" loading="lazy">
 <div class="card-body">
 <div class="card-head"><h3>Buffalo</h3><span class="kind">phone</span></div>
@@ -151,9 +151,9 @@ footer a{color:var(--accent)}
 <div><dt>cameras</dt><dd class="hi">22/23</dd></div>
 <div><dt>points</dt><dd>19,395</dd></div>
 <div><dt>reprojection</dt><dd>0.32 px</dd></div>
-<div><dt>runtime</dt><dd>1303 s</dd></div>
+<div><dt>dense mesh</dt><dd>yes</dd></div>
 </dl>
-<p>Nearly complete, though the subject occupies a small part of each frame.</p>
+<p>Nearly every camera placed, but only 3.9% of points land on the statue — the park around it supplies the features.</p>
 <span class="open">Open 3D viewer &rarr;</span>
 </div></a><a class="card" href="viewers/office.html">
 <img src="reference/office.jpg" alt="One of the 14 photographs of Office" loading="lazy">
@@ -163,7 +163,7 @@ footer a{color:var(--accent)}
 <div><dt>cameras</dt><dd class="hi">12/14</dd></div>
 <div><dt>points</dt><dd>12,061</dd></div>
 <div><dt>reprojection</dt><dd>0.34 px</dd></div>
-<div><dt>runtime</dt><dd>109 s</dd></div>
+<div><dt>dense mesh</dt><dd>yes</dd></div>
 </dl>
 <p>Indoor scene, most views placed.</p>
 <span class="open">Open 3D viewer &rarr;</span>
@@ -175,7 +175,7 @@ footer a{color:var(--accent)}
 <div><dt>cameras</dt><dd class="hi">5/7</dd></div>
 <div><dt>points</dt><dd>15,571</dd></div>
 <div><dt>reprojection</dt><dd>0.99 px</dd></div>
-<div><dt>runtime</dt><dd>53 s</dd></div>
+<div><dt>dense mesh</dt><dd>yes</dd></div>
 </dl>
 <p>The one set with measured 3D points as well as poses. More accurate than COLMAP here.</p>
 <span class="open">Open 3D viewer &rarr;</span>
@@ -187,9 +187,9 @@ footer a{color:var(--accent)}
 <div><dt>cameras</dt><dd class="hi">11/16</dd></div>
 <div><dt>points</dt><dd>70,269</dd></div>
 <div><dt>reprojection</dt><dd>0.42 px</dd></div>
-<div><dt>runtime</dt><dd>557 s</dd></div>
+<div><dt>dense mesh</dt><dd>yes</dd></div>
 </dl>
-<p>Most points land off the subject: the surrounding room supplies the texture.</p>
+<p>The varnished body is too smooth to match on, so the fence and gravel supply the features — only 3.7% of points land on the instrument. COLMAP registers all 16.</p>
 <span class="open">Open 3D viewer &rarr;</span>
 </div></a><a class="card" href="viewers/statue.html">
 <img src="reference/statue.jpg" alt="One of the 11 photographs of ETH3D statue" loading="lazy">
@@ -199,9 +199,9 @@ footer a{color:var(--accent)}
 <div><dt>cameras</dt><dd class="hi">7/11</dd></div>
 <div><dt>points</dt><dd>2,419</dd></div>
 <div><dt>reprojection</dt><dd>0.14 px</dd></div>
-<div><dt>runtime</dt><dd>48 s</dd></div>
+<div><dt>dense mesh</dt><dd>yes</dd></div>
 </dl>
-<p>Wide field of view; the metadata estimate is poor here.</p>
+<p>Wide field of view and a 14.6° median step between views, above this pipeline’s envelope. COLMAP registers all 11.</p>
 <span class="open">Open 3D viewer &rarr;</span>
 </div></a><a class="card" href="viewers/herzjesu.html">
 <img src="reference/herzjesu.jpg" alt="One of the 23 photographs of Herz-Jesu" loading="lazy">
@@ -211,9 +211,9 @@ footer a{color:var(--accent)}
 <div><dt>cameras</dt><dd class="hi">13/23</dd></div>
 <div><dt>points</dt><dd>8,509</dd></div>
 <div><dt>reprojection</dt><dd>0.46 px</dd></div>
-<div><dt>runtime</dt><dd>148 s</dd></div>
+<div><dt>dense mesh</dt><dd>yes</dd></div>
 </dl>
-<p>Benchmark façade; roughly half the views register.</p>
+<p>Benchmark façade. COLMAP registers all 23, so the ten missing views are this pipeline’s limit, not the capture’s.</p>
 <span class="open">Open 3D viewer &rarr;</span>
 </div></a><a class="card" href="viewers/library-statue.html">
 <img src="reference/library-statue.jpg" alt="One of the 16 photographs of Library Statue" loading="lazy">
@@ -223,9 +223,9 @@ footer a{color:var(--accent)}
 <div><dt>cameras</dt><dd class="hi">8/16</dd></div>
 <div><dt>points</dt><dd>32,754</dd></div>
 <div><dt>reprojection</dt><dd>0.31 px</dd></div>
-<div><dt>runtime</dt><dd>557 s</dd></div>
+<div><dt>dense mesh</dt><dd>yes</dd></div>
 </dl>
-<p>Half the views placed; COLMAP places all sixteen.</p>
+<p>Smooth surfaces and a great deal of background. COLMAP registers all 16, so the capture was adequate and this is a limit of the implementation.</p>
 <span class="open">Open 3D viewer &rarr;</span>
 </div></a><a class="card" href="viewers/child-statue.html">
 <img src="reference/child-statue.jpg" alt="One of the 13 photographs of Child Statue" loading="lazy">
@@ -235,9 +235,9 @@ footer a{color:var(--accent)}
 <div><dt>cameras</dt><dd class="hi">6/13</dd></div>
 <div><dt>points</dt><dd>4,748</dd></div>
 <div><dt>reprojection</dt><dd>0.47 px</dd></div>
-<div><dt>runtime</dt><dd>83 s</dd></div>
+<div><dt>dense mesh</dt><dd>yes</dd></div>
 </dl>
-<p>Smooth stone, little to match on.</p>
+<p>Smooth stone with little to match on, and a 13.6° step between views. COLMAP manages 9 of 13, so both systems struggle here.</p>
 <span class="open">Open 3D viewer &rarr;</span>
 </div></a><a class="card" href="viewers/fire-hydrant.html">
 <img src="reference/fire-hydrant.jpg" alt="One of the 16 photographs of Fire Hydrant" loading="lazy">
@@ -247,12 +247,12 @@ footer a{color:var(--accent)}
 <div><dt>cameras</dt><dd class="hi">5/16</dd></div>
 <div><dt>points</dt><dd>4,404</dd></div>
 <div><dt>reprojection</dt><dd>0.27 px</dd></div>
-<div><dt>runtime</dt><dd>145 s</dd></div>
+<div><dt>dense mesh</dt><dd>yes</dd></div>
 </dl>
-<p>Smooth painted metal. A failure of feature matching, not of capture.</p>
+<p>Smooth painted metal gives feature matching almost nothing to hold. COLMAP registers all 16 — the photographs were workable; this pipeline was not.</p>
 <span class="open">Open 3D viewer &rarr;</span>
 </div></a></div></section>
-<section><div class="sec-head"><h2>Failed</h2><p>Too few points survived to be a reconstruction. Included because the report argues from them.</p></div><div class="grid"><a class="card" href="viewers/open-mouth.html">
+<section><div class="sec-head"><h2>Too few points to be a reconstruction</h2><p>Included because the report argues from them. The distinction that matters is whether COLMAP fails on the same photographs: if it does, the capture was inadequate; if it does not, this pipeline was.</p></div><div class="grid"><a class="card" href="viewers/open-mouth.html">
 <img src="reference/open-mouth.jpg" alt="One of the 9 photographs of Open Mouth" loading="lazy">
 <div class="card-body">
 <div class="card-head"><h3>Open Mouth</h3><span class="kind">phone</span></div>
@@ -260,9 +260,9 @@ footer a{color:var(--accent)}
 <div><dt>cameras</dt><dd class="hi">2/9</dd></div>
 <div><dt>points</dt><dd>20</dd></div>
 <div><dt>reprojection</dt><dd>0.31 px</dd></div>
-<div><dt>runtime</dt><dd>14 s</dd></div>
+<div><dt>dense mesh</dt><dd>none</dd></div>
 </dl>
-<p>Twenty surviving points. Unusable.</p>
+<p>The statue is only partly in frame in several shots, and the median step between views is 16.9°. This pipeline places 2 of 9 and recovers 20 points; COLMAP places all nine but recovers only 1,212, and neither produces a recognisable statue. Marginal capture for both; the registration gap is this pipeline’s.</p>
 <span class="open">Open 3D viewer &rarr;</span>
 </div></a><a class="card" href="viewers/robotpu.html">
 <img src="reference/robotpu.jpg" alt="One of the 39 photographs of Robotpu" loading="lazy">
@@ -272,13 +272,13 @@ footer a{color:var(--accent)}
 <div><dt>cameras</dt><dd class="hi">2/39</dd></div>
 <div><dt>points</dt><dd>3</dd></div>
 <div><dt>reprojection</dt><dd>0.11 px</dd></div>
-<div><dt>runtime</dt><dd>172 s</dd></div>
+<div><dt>dense mesh</dt><dd>yes</dd></div>
 </dl>
-<p>Three points from thirty-nine photographs. The one genuine capture failure — COLMAP fails identically.</p>
+<p>The camera barely moved relative to the robot, so there is almost no parallax to triangulate from. COLMAP places the same 2 of 39. This is the one genuine capture failure.</p>
 <span class="open">Open 3D viewer &rarr;</span>
 </div></a></div></section>
 <section><div class="sec-head"><h2>How to read these</h2>
-<p>Each viewer shows the sparse point cloud the pipeline measured, the recovered camera positions around it, and &mdash; where the dense stage ran &mdash; a Poisson mesh. <strong>Cameras</strong> is how many photographs were successfully placed; <strong>reprojection</strong> is how far the 3D points land from where they were actually observed. A low reprojection error on a failed reconstruction means the solver converged on a wrong answer, which is why both numbers appear together.</p>
+<p>Each viewer shows the sparse point cloud the pipeline measured, the recovered camera positions around it, and &mdash; where the dense stage ran &mdash; a Poisson mesh. <strong>Cameras</strong> is how many photographs were successfully placed; <strong>reprojection</strong> is how far the 3D points land from where they were actually observed. Every result but one also carries a dense Poisson mesh. A low reprojection error on a failed reconstruction means the solver converged on a wrong answer, which is why both numbers appear together.</p>
 <p>The pipeline, the evaluation code and the full report are in the <a href="https://github.com/monkeybuzinis/3D-Reconstruction-from-2D-Images---Structure-from-Motion">repository</a>. See also the <a href="architecture.html">module architecture</a>.</p>
 </div></section>
 </div>
